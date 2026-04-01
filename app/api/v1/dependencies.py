@@ -5,9 +5,9 @@ from typing import Any, AsyncIterator, Dict, List, Optional
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.repositories.sku_repository import BreadcrumbRepository
 from app.core.repositories.category_repository import CategoryRepository
 from app.core.repositories.product_repository import ProductRepository
+from app.core.repositories.sku_repository import SkuRepository
 from app.infrastructure.database.adapters.pg_connection import DatabaseConnection
 
 
@@ -49,14 +49,17 @@ async def get_filters_from_query(request: Request) -> Optional[Dict[str, Any]]:
     return filters or None
 
 
-def get_product_repo(session: AsyncSession = Depends(get_session)) -> ProductRepository:
-    return ProductRepository(session)
-
-
-def get_category_repo(session: AsyncSession = Depends(get_session)) -> CategoryRepository:
+async def get_category_repo(db_connection):
+    session = db_connection.get_session()
     return CategoryRepository(session)
 
 
-def get_breadcrumb_repo(session: AsyncSession = Depends(get_session)) -> BreadcrumbRepository:
-    return BreadcrumbRepository(session)
+async def get_product_repo(db_connection):
+    session = db_connection.get_session()
+    return ProductRepository(session)
+
+
+async def get_sku_repo(db_connection):
+    session = db_connection.get_session()
+    return SkuRepository(session)
 

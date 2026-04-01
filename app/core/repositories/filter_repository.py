@@ -5,8 +5,8 @@ from uuid import UUID
 from app.core.repositories.base import SqlAlchemyRepository
 from app.infrastructure.database.models.product import Product, ProductStatus
 from app.infrastructure.database.models.sku import Sku
-from app.infrastructure.database.models.product_characteristics import ProductCharacteristic
-from app.infrastructure.database.models.sku_characteristics import SkuCharacteristic
+from app.infrastructure.database.models.product import ProductCharacteristic
+from app.infrastructure.database.models.sku import SkuCharacteristic
 
 
 class FilterRepository:

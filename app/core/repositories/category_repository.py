@@ -3,51 +3,66 @@ from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 from uuid import UUID
 from app.core.repositories.base import SqlAlchemyRepository
-from app.infrastructure.database.models.sku import Sku
+from app.infrastructure.database.models.category import Category
 
 
-class SkuRepository(SqlAlchemyRepository[Sku]):
-    """Репозиторий для работы с SKU"""
+class CategoryRepository(SqlAlchemyRepository[Category]):
+    """Репозиторий для работы с категориями"""
 
     def __init__(self, session):
-        super().__init__(session, Sku)
+        super().__init__(session, Category)
 
-    async def get_by_product(self, product_id: UUID) -> List[Sku]:
-        """Получить все SKU товара"""
+    async def get_tree(self) -> List[Category]:
+        """Получить дерево категорий (корневые)"""
         result = await self.session.execute(
-            select(Sku)
-            .where(Sku.product_id == product_id)
-            .options(
-                joinedload(Sku.images),
-                joinedload(Sku.characteristics),
-            )
+            select(Category)
+            .where(Category.parent_id.is_(None))
+            .where(Category.is_active == True)
+            .options(joinedload(Category.children))
         )
         return result.scalars().all()
 
-    async def get_available(self, product_id: UUID) -> List[Sku]:
-        """Получить только доступные SKU (в наличии)"""
+    async def get_by_slug(self, slug: str) -> Optional[Category]:
+        """Получить категорию по slug"""
         result = await self.session.execute(
-            select(Sku)
-            .where(Sku.product_id == product_id, Sku.quantity > 0)
-            .options(joinedload(Sku.images))
-        )
-        return result.scalars().all()
-
-    async def get_min_price(self, product_id: UUID) -> Optional[float]:
-        """Получить минимальную цену среди SKU"""
-        from sqlalchemy import func
-        result = await self.session.execute(
-            select(func.min(Sku.price)).where(Sku.product_id == product_id)
+            select(Category).where(Category.slug == slug)
         )
         return result.scalar_one_or_none()
 
-    async def get_in_stock_count(self, product_id: UUID) -> int:
-        """Получить количество SKU в наличии"""
-        from sqlalchemy import func
+    async def get_children(self, parent_id: UUID) -> List[Category]:
+        """Получить дочерние категории"""
         result = await self.session.execute(
-            select(func.count()).where(
-                Sku.product_id == product_id,
-                Sku.quantity > 0
-            )
+            select(Category)
+            .where(Category.parent_id == parent_id)
+            .where(Category.is_active == True)
+            .options(joinedload(Category.children))
         )
-        return result.scalar_one() or 0
+        return result.scalars().all()
+
+    async def get_ancestors(self, category_id: UUID) -> List[Category]:
+        """Получить всех предков категории (для breadcrumbs)"""
+        ancestors = []
+        current = await self.get_by_id(category_id)
+
+        while current and current.parent_id:
+            parent = await self.get_by_id(current.parent_id)
+            if parent:
+                ancestors.insert(0, parent)
+                current = parent
+            else:
+                break
+
+        return ancestors
+
+    async def get_with_products_count(self) -> List[Category]:
+        """Получить категории с количеством товаров"""
+        from sqlalchemy import func
+        from app.infrastructure.database.models.product import Product
+
+        result = await self.session.execute(
+            select(Category)
+            .outerjoin(Product, Category.id == Product.category_id)
+            .group_by(Category.id)
+            .options(joinedload(Category.children))
+        )
+        return result.scalars().all()
