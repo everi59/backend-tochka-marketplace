@@ -4,6 +4,7 @@ from sqlalchemy import String, Text, Integer, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Optional, List
+
 from app.infrastructure.database.models.base import Base
 
 
@@ -15,6 +16,7 @@ class Category(Base):
         primary_key=True,
         default=uuid.uuid4
     )
+
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -27,22 +29,22 @@ class Category(Base):
     )
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
 
     parent: Mapped[Optional["Category"]] = relationship(
         "Category",
-        foreign_keys=[parent_id],
+        remote_side=[id],   # 🔥 ВАЖНО
         back_populates="children"
     )
+
     children: Mapped[List["Category"]] = relationship(
         "Category",
-        foreign_keys=[parent_id],
-        back_populates="parent",
-        cascade="all, delete-orphan"
+        back_populates="parent"
     )
+
     products: Mapped[List["Product"]] = relationship(
         "Product",
-        back_populates="category",
-        cascade="all, delete-orphan"
+        back_populates="category"
     )

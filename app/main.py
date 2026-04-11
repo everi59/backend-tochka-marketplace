@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from app.infrastructure.database.adapters.pg_connection import DatabaseConnection
 from app.infrastructure.config.config import APP_CONFIG, DB_CONFIG
 from app.api.v1.routers import api_v1_router
+from app.utils.auth_middleware import AuthMiddleware
 
 # Настройка логирования
 logging.basicConfig(
@@ -35,9 +36,10 @@ async def lifespan(app: FastAPI):
         logger.error("Database connection failed!")
 
     app.state.db_connection = db_connection
+    app.state.sessions = {}
 
     # Create directories для статики
-    _ensure_directories()
+    # _ensure_directories()
 
     logger.info("=== APPLICATION READY ===")
 
@@ -76,6 +78,10 @@ app.add_middleware(
     allow_credentials=APP_CONFIG.CORS_ALLOW_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+app.add_middleware(
+    AuthMiddleware
 )
 
 # Static files

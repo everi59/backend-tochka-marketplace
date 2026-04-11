@@ -62,6 +62,7 @@ class SqlAlchemyRepository(Generic[T]):
         self.session.add(entity)
         await self.session.flush()
         await self.session.refresh(entity)
+        await self.session.commit()
         return entity
 
     async def update(self, entity: T, **kwargs) -> T:
@@ -71,6 +72,7 @@ class SqlAlchemyRepository(Generic[T]):
                 setattr(entity, key, value)
         await self.session.flush()
         await self.session.refresh(entity)
+        await self.session.commit()
         return entity
 
     async def delete(self, id: UUID) -> bool:
