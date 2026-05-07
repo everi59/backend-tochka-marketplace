@@ -39,8 +39,8 @@ async def register(
     if await repo.get_by_field("nickname", data.nickname):
         raise HTTPException(400, "Nickname already exists")
 
-    if await repo.get_by_field("email", data.nickname):
-        raise HTTPException(400, "Nickname already exists")
+    if await repo.get_by_field("email", data.email):
+        raise HTTPException(400, "Email already exists")
 
     hashed = hash_password(data.password)
 
