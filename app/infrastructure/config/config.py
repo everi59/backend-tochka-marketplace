@@ -68,6 +68,9 @@ class Settings(Config):
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     app: AppConfig = Field(default_factory=AppConfig)
 
+    def get_url(self, is_async: bool = False) -> str:
+        return self.database.get_url(is_async)
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
