@@ -41,6 +41,21 @@ class Sku(Base):
         back_populates="sku",
         cascade="all, delete-orphan"
     )
+    cart_items: Mapped[List["CartItem"]] = relationship(
+        "CartItem",
+        back_populates="sku",
+        cascade="all, delete-orphan"
+    )
+    order_items: Mapped[List["OrderItem"]] = relationship(
+        "OrderItem",
+        back_populates="sku",
+        cascade="all, delete-orphan"
+    )
+    invoice_items: Mapped[List["InvoiceItem"]] = relationship(
+        "InvoiceItem",
+        back_populates="sku",
+        cascade="all, delete-orphan"
+    )
 
 
 class SkuImage(Base):

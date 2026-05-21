@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Marketplace API Tester</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      color-scheme: dark light;
+      --bg: #0f172a;
+      --bg-alt: #020617;
+      --card: #020617;
+      --border: #1e293b;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.1);
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --error: #f97373;
+      --radius: 10px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #1d2435 0, #020617 45%, #000 100%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .app {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .title {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      letter-spacing: 0.03em;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .pill {
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.4));
+      backdrop-filter: blur(12px);
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 260px) minmax(0, 1.4fr) minmax(0, 1fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 1000px) {
+      main {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .card {
+      border-radius: var(--radius);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.11), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(37, 99, 235, 0.18), transparent 55%),
+        linear-gradient(145deg, rgba(15, 23, 42, 0.97), rgba(15, 23, 42, 0.9));
+      box-shadow:
+        0 18px 45px rgba(15, 23, 42, 0.9),
+        0 0 0 1px rgba(15, 23, 42, 0.8);
+      padding: 14px 14px 16px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #e5e7eb;
+    }
+
+    .card-subtitle {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      overflow-y: auto;
+      max-height: 420px;
+    }
+
+    .item {
+      border-radius: 8px;
+      padding: 8px 9px;
+      border: 1px solid rgba(148, 163, 184, 0.32);
+      background: radial-gradient(circle at top left, rgba(30, 64, 175, 0.38), rgba(15, 23, 42, 0.96));
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      transition: all 0.14s ease-out;
+      font-size: 13px;
+    }
+
+    .item:hover {
+      border-color: rgba(56, 189, 248, 0.9);
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.35), 0 14px 30px rgba(15, 23, 42, 0.9);
+      transform: translateY(-1px);
+    }
+
+    .item--selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.6), 0 16px 35px rgba(15, 23, 42, 0.95);
+      background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.45), rgba(15, 23, 42, 0.98));
+    }
+
+    .item-title {
+      font-weight: 500;
+    }
+
+    .item-meta {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .detail-block {
+      border-radius: 8px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      background: radial-gradient(circle at top left, rgba(30, 64, 175, 0.3), rgba(15, 23, 42, 0.96));
+      font-size: 13px;
+    }
+
+    .detail-block h3 {
+      margin: 0 0 4px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #f9fafb;
+    }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 1px 0;
+    }
+
+    .detail-label {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .detail-value {
+      font-size: 12px;
+      text-align: right;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(251, 191, 36, 0.5);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #f59e0b;
+      background: linear-gradient(135deg, rgba(30, 64, 175, 0.9), rgba(30, 64, 175, 0.3));
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(52, 211, 153, 0.6);
+      font-size: 11px;
+      color: #6ee7b7;
+      background: radial-gradient(circle at top left, rgba(16, 185, 129, 0.35), rgba(15, 23, 42, 0.96));
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.4);
+    }
+
+    .breadcrumbs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    .crumb {
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.4);
+    }
+
+    .crumb--current {
+      border-color: var(--accent);
+      background: rgba(8, 47, 73, 0.95);
+    }
+
+    .log {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 11px;
+      padding: 8px;
+      border-radius: 8px;
+      background: rgba(2, 6, 23, 0.94);
+      border: 1px solid rgba(15, 23, 42, 0.9);
+      color: #e5e7eb;
+      max-height: 420px;
+      overflow: auto;
+      white-space: pre-wrap;
+    }
+
+    .log-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    button {
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.4), rgba(15, 23, 42, 0.98));
+      color: #e5e7eb;
+      font-size: 11px;
+      padding: 5px 10px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: all 0.14s ease-out;
+    }
+
+    button:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.4), 0 10px 25px rgba(15, 23, 42, 0.95);
+      transform: translateY(-0.5px);
+    }
+
+    .error {
+      color: var(--error);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="title">
+        <h1>Marketplace API Tester</h1>
+        <div class="subtitle">Быстрый фронт для проверки категорий, товаров и breadcrumbs</div>
+      </div>
+      <div class="pill">Backend: http://localhost:8000/api/v1</div>
+    </header>
+
+    <main>
+      <!-- Колонка категорий -->
+      <section class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Категории</div>
+            <div class="card-subtitle">Дерево из /api/v1/categories</div>
+          </div>
+          <button id="reload-categories">↻ Обновить</button>
+        </div>
+        <ul id="categories" class="list"></ul>
+        <div id="categories-error" class="error"></div>
+      </section>
+
+      <!-- Колонка товаров + детали -->
+      <section class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Товары</div>
+            <div class="card-subtitle">/api/v1/products и /products/{id}</div>
+          </div>
+          <div class="controls">
+            <button id="reload-products">Товары по категории</button>
+          </div>
+        </div>
+
+        <div class="detail-block" id="product-detail">
+          <h3>Детали товара</h3>
+          <div id="product-summary" class="card-subtitle">Выберите товар из списка ниже</div>
+          <div id="product-extra"></div>
+        </div>
+
+        <ul id="products" class="list"></ul>
+        <div id="products-error" class="error"></div>
+      </section>
+
+      <!-- Колонка breadcrumbs и raw-ответы -->
+      <section class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Breadcrumbs / Отладка</div>
+            <div class="card-subtitle">/api/v1/breadcrumbs и сырые ответы</div>
+          </div>
+          <div class="controls">
+            <button id="breadcrumb-by-category">По категории</button>
+            <button id="breadcrumb-by-product">По товару</button>
+          </div>
+        </div>
+
+        <div class="detail-block">
+          <h3>Breadcrumbs</h3>
+          <div id="breadcrumbs-meta" class="card-subtitle"></div>
+          <div id="breadcrumbs" class="breadcrumbs"></div>
+        </div>
+
+        <div class="log">
+          <div class="log-title">Последний JSON‑ответ</div>
+          <div id="log-content">{}</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const API_BASE = "http://localhost:8000/api/v1";
+
+    const categoriesEl = document.getElementById("categories");
+    const categoriesErrorEl = document.getElementById("categories-error");
+    const productsEl = document.getElementById("products");
+    const productsErrorEl = document.getElementById("products-error");
+    const productSummaryEl = document.getElementById("product-summary");
+    const productExtraEl = document.getElementById("product-extra");
+    const breadcrumbsEl = document.getElementById("breadcrumbs");
+    const breadcrumbsMetaEl = document.getElementById("breadcrumbs-meta");
+    const logContentEl = document.getElementById("log-content");
+
+    let selectedCategoryId = null;
+    let selectedProductId = null;
+
+    function renderJsonLog(data) {
+      try {
+        logContentEl.textContent = JSON.stringify(data, null, 2);
+      } catch (e) {
+        logContentEl.textContent = String(data);
+      }
+    }
+
+    async function apiGet(path, params = {}) {
+      const url = new URL(API_BASE + path);
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null) {
+          url.searchParams.set(k, v);
+        }
+      });
+
+      const res = await fetch(url.toString(), {
+        headers: {
+          "Accept": "application/json",
+        },
+      });
+
+      const text = await res.text();
+      let body;
+      try {
+        body = text ? JSON.parse(text) : null;
+      } catch {
+        body = text;
+      }
+
+      renderJsonLog(body);
+
+      if (!res.ok) {
+        const msg = typeof body === "object" && body && body.message
+          ? body.message
+          : res.status + " " + res.statusText;
+        throw new Error(msg);
+      }
+
+      return body;
+    }
+
+    function renderCategoryTree(items, level = 0) {
+      const flat = [];
+
+      function walk(nodes, depth, parentChain) {
+        nodes.forEach((node) => {
+          flat.push({
+            id: node.id,
+            name: node.name,
+            depth,
+            path: [...parentChain, node.name].join(" / "),
+            hasChildren: (node.children || []).length > 0,
+          });
+          if (node.children && node.children.length) {
+            walk(node.children, depth + 1, [...parentChain, node.name]);
+          }
+        });
+      }
+
+      walk(items, level, []);
+      return flat;
+    }
+
+    async function loadCategories() {
+      categoriesErrorEl.textContent = "";
+      categoriesEl.innerHTML = "<li class='card-subtitle'>Загрузка...</li>";
+
+      try {
+        const data = await apiGet("/categories");
+        const flat = renderCategoryTree(data.items || []);
+        categoriesEl.innerHTML = "";
+
+        if (!flat.length) {
+          categoriesEl.innerHTML = "<li class='card-subtitle'>Категорий нет</li>";
+          return;
+        }
+
+        flat.forEach((cat) => {
+          const li = document.createElement("li");
+          li.className = "item" + (cat.id === selectedCategoryId ? " item--selected" : "");
+          li.dataset.id = cat.id;
+          li.innerHTML = `
+            <div class="item-title">${"&nbsp;".repeat(cat.depth * 2)}${cat.name}</div>
+            <div class="item-meta">${cat.path}</div>
+          `;
+          li.addEventListener("click", () => {
+            selectedCategoryId = cat.id;
+            selectedProductId = null;
+            productSummaryEl.textContent = "Категория выбрана, загрузите товары";
+            productExtraEl.innerHTML = "";
+            breadcrumbsEl.innerHTML = "";
+            breadcrumbsMetaEl.textContent = "";
+            Array.from(categoriesEl.children).forEach((n) => n.classList.remove("item--selected"));
+            li.classList.add("item--selected");
+          });
+          categoriesEl.appendChild(li);
+        });
+      } catch (e) {
+        categoriesErrorEl.textContent = e.message || "Ошибка загрузки категорий";
+        categoriesEl.innerHTML = "";
+      }
+    }
+
+    async function loadProducts() {
+      productsErrorEl.textContent = "";
+      productsEl.innerHTML = "<li class='card-subtitle'>Загрузка...</li>";
+
+      try {
+        const params = {
+          limit: 20,
+          offset: 0,
+        };
+        if (selectedCategoryId) {
+          params.category_id = selectedCategoryId;
+        }
+        const data = await apiGet("/products", params);
+        const items = data.items || [];
+        productsEl.innerHTML = "";
+
+        if (!items.length) {
+          productsEl.innerHTML = "<li class='card-subtitle'>Товаров нет</li>";
+          return;
+        }
+
+        items.forEach((p) => {
+          const li = document.createElement("li");
+          li.className = "item" + (p.id === selectedProductId ? " item--selected" : "");
+          li.dataset.id = p.id;
+          li.innerHTML = `
+            <div class="item-title">${p.title}</div>
+            <div class="item-meta">
+              Цена от: ${p.price ?? "-"} | В наличии: ${p.in_stock ? "да" : "нет"}
+            </div>
+          `;
+          li.addEventListener("click", async () => {
+            selectedProductId = p.id;
+            Array.from(productsEl.children).forEach((n) => n.classList.remove("item--selected"));
+            li.classList.add("item--selected");
+            await loadProductDetail(p.id);
+          });
+          productsEl.appendChild(li);
+        });
+      } catch (e) {
+        productsErrorEl.textContent = e.message || "Ошибка загрузки товаров";
+        productsEl.innerHTML = "";
+      }
+    }
+
+    async function loadProductDetail(productId) {
+      try {
+        const data = await apiGet(`/products/${productId}`);
+        productSummaryEl.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
+            <span>${data.title || "Без названия"}</span>
+            <span class="status-pill">
+              <span class="status-dot"></span>
+              ${data.status || "UNKNOWN"}
+            </span>
+          </div>
+        `;
+
+        const chars = (data.characteristics || [])
+          .map((ch) => `${ch.name}: ${ch.value}`)
+          .join(", ");
+
+        const firstSku = (data.skus || [])[0];
+        const price = firstSku ? firstSku.price : "—";
+
+        productExtraEl.innerHTML = `
+          <div class="detail-row">
+            <div class="detail-label">Slug</div>
+            <div class="detail-value">${data.slug || "-"}</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-label">Характеристики</div>
+            <div class="detail-value">${chars || "—"}</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-label">Первая цена SKU</div>
+            <div class="detail-value">${price}</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-label">SKU всего</div>
+            <div class="detail-value">${(data.skus || []).length}</div>
+          </div>
+        `;
+      } catch (e) {
+        productSummaryEl.textContent = e.message || "Ошибка загрузки товара";
+        productExtraEl.innerHTML = "";
+      }
+    }
+
+    async function loadBreadcrumbs(by) {
+      if (by === "category" && !selectedCategoryId) {
+        breadcrumbsMetaEl.textContent = "Сначала выберите категорию";
+        return;
+      }
+      if (by === "product" && !selectedProductId) {
+        breadcrumbsMetaEl.textContent = "Сначала выберите товар";
+        return;
+      }
+
+      breadcrumbsMetaEl.textContent = "";
+      breadcrumbsEl.innerHTML = "";
+
+      try {
+        const params = {};
+        if (by === "category") params.category_id = selectedCategoryId;
+        if (by === "product") params.product_id = selectedProductId;
+
+        const data = await apiGet("/breadcrumbs", params);
+
+        breadcrumbsMetaEl.textContent = `resolved_via: ${data.meta?.resolved_via || "-"}`;
+        (data.data || []).forEach((b) => {
+          const span = document.createElement("span");
+          span.className = "crumb" + (b.is_current ? " crumb--current" : "");
+          span.textContent = b.name;
+          breadcrumbsEl.appendChild(span);
+        });
+      } catch (e) {
+        breadcrumbsMetaEl.textContent = e.message || "Ошибка breadcrumbs";
+        breadcrumbsEl.innerHTML = "";
+      }
+    }
+
+    document.getElementById("reload-categories").addEventListener("click", loadCategories);
+    document.getElementById("reload-products").addEventListener("click", loadProducts);
+    document.getElementById("breadcrumb-by-category").addEventListener("click", () => loadBreadcrumbs("category"));
+    document.getElementById("breadcrumb-by-product").addEventListener("click", () => loadBreadcrumbs("product"));
+
+    loadCategories();
+    loadProducts();
+  </script>
+</body>
+</html>
+

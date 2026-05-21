@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/market_project.iml" filepath="$PROJECT_DIR$/.idea/market_project.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/backend-tochka-marketplace.iml" filepath="$PROJECT_DIR$/.idea/backend-tochka-marketplace.iml" />
     </modules>
   </component>
 </project>

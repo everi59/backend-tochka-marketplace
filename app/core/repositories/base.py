@@ -1,6 +1,6 @@
-from typing import TypeVar, Generic, Optional, List, Type, Callable
+from typing import TypeVar, Generic, Optional, List, Type
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, delete, update
+from sqlalchemy import select, func, delete
 from sqlalchemy.sql import Select
 from app.infrastructure.database.models.base import Base
 from uuid import UUID
@@ -25,14 +25,12 @@ class SqlAlchemyRepository(Generic[T]):
     async def get_all(
         self,
         limit: int = 100,
-        offset: int = 0,
-        order_by: Optional[Callable] = None
+        offset: int = 0
     ) -> List[T]:
         """Получить все записи с пагинацией"""
-        query = select(self.model).offset(offset).limit(limit)
-        if order_by:
-            query = query.order_by(order_by)
-        result = await self.session.execute(query)
+        result = await self.session.execute(
+            select(self.model).offset(offset).limit(limit)
+        )
         return result.scalars().all()
 
     async def get_many(
@@ -62,6 +60,7 @@ class SqlAlchemyRepository(Generic[T]):
         self.session.add(entity)
         await self.session.flush()
         await self.session.refresh(entity)
+        await self.session.commit()
         return entity
 
     async def update(self, entity: T, **kwargs) -> T:
@@ -71,6 +70,7 @@ class SqlAlchemyRepository(Generic[T]):
                 setattr(entity, key, value)
         await self.session.flush()
         await self.session.refresh(entity)
+        await self.session.commit()
         return entity
 
     async def delete(self, id: UUID) -> bool:
@@ -88,9 +88,4 @@ class SqlAlchemyRepository(Generic[T]):
         )
         return result.scalar_one_or_none() is not None
 
-    async def get_by_field(self, field: str, value) -> Optional[T]:
-        """Получить запись по полю"""
-        result = await self.session.execute(
-            select(self.model).where(getattr(self.model, field) == value)
-        )
-        return result.scalar_one_or_none()
+    
