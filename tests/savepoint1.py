@@ -241,3 +241,4 @@ def test_view_my_products_success(jwt_token, requests_mock):
     assert len(data) == 2
     for item in data:
         assert item["seller_id"] == 123
+
