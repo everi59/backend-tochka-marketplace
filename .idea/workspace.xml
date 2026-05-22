@@ -4,50 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="11e50fec-ed06-4aea-b56a-79f00dd66ac6" name="Changes" comment="Update file structure">
-      <change afterPath="$PROJECT_DIR$/app/core/dto/catalog/breadcrumb_dto.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/infrastructure/database/models/banner.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/infrastructure/database/models/collection.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/infrastructure/database/models/invoice.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/infrastructure/database/models/order.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/seed_data.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/static/index.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+    <list default="true" id="11e50fec-ed06-4aea-b56a-79f00dd66ac6" name="Changes" comment="All tested things">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/Dockerfile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/alembic.ini" beforeDir="false" afterPath="$PROJECT_DIR$/alembic.ini" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/alembic/README" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/alembic/env.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/alembic/script.py.mako" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/dependencies.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/dependencies.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/routers/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/routers/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/routers/catalog/categories.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/routers/catalog/categories.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/routers/catalog/facets.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/routers/catalog/facets.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/routers/catalog/products.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/routers/catalog/products.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/routers/seller/invoices.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/routers/seller/invoices.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/routers/seller/products.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/routers/seller/products.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/routers/seller/skus.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/routers/seller/skus.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/dto/catalog/category_dto.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/dto/catalog/category_dto.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/dto/catalog/facet_dto.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/dto/catalog/facet_dto.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/dto/catalog/product_dto.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/dto/catalog/product_dto.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/dto/catalog/sku_dto.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/dto/catalog/sku_dto.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/dto/seller/invoice_dto.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/dto/seller/invoice_dto.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/dto/seller/product_dto.py" beforeDir="false" afterPath="$PROJECT_DIR$/alembic/versions/001_initial_schema.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/dto/seller/sku_dto.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/repositories/filter_repository.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/repositories/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/repositories/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/repositories/base.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/repositories/base.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/repositories/category_repository.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/repositories/category_repository.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/repositories/product_repository.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/repositories/product_repository.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/repositories/sku_repository.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/repositories/sku_repository.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/infrastructure/database/models/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/infrastructure/database/models/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/infrastructure/database/models/cart.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/infrastructure/database/models/cart.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/infrastructure/database/models/cart_item.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/repositories/invoice_repository.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/infrastructure/database/models/category.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/infrastructure/database/models/category.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/infrastructure/database/models/favorite.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/infrastructure/database/models/favorite.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/infrastructure/database/models/moderation.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/infrastructure/database/models/moderation.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/infrastructure/database/models/product.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/infrastructure/database/models/product.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/infrastructure/database/models/sku.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/infrastructure/database/models/sku.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/services/invoice_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -215,7 +175,15 @@
       <option name="project" value="LOCAL" />
       <updated>1775672365068</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="All tested things">
+      <option name="closed" value="true" />
+      <created>1779373862512</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1779373862513</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -235,6 +203,7 @@
     <MESSAGE value="Fix alembic" />
     <MESSAGE value="Update README.md" />
     <MESSAGE value="Update file structure" />
-    <option name="LAST_COMMIT_MESSAGE" value="Update file structure" />
+    <MESSAGE value="All tested things" />
+    <option name="LAST_COMMIT_MESSAGE" value="All tested things" />
   </component>
 </project>
