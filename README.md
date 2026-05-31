@@ -1,9 +1,17 @@
-## Installation
-```bash
-git clone https://github.com/everi59/backend-tochka-marketplace
-cd backend-tochka-marketplace
-cp .env.docker.example .env.docker
-docker-compose up -d --build
-docker-compose exec api alembic upgrade head
-curl http://localhost:8000/health
-```
+# Project
+
+This repository contains the source code for the application.
+
+## Project Structure
+
+- **app/** – Core application code.
+- **api_v1.yaml** – OpenAPI specification.
+
+## Running the App
+
+Use the provided Docker setup or run locally with the appropriate environment variables.
+
+## Development
+
+- Install dependencies: `pip install -r requirements.txt`.
+- Run tests: `pytest`.

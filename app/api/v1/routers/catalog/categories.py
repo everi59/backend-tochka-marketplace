@@ -1,3 +1,12 @@
+<<<<<<< HEAD
+from fastapi import APIRouter
+
+router = APIRouter()
+
+@router.get("/", tags=["Catalog: Categories"])
+async def list_categories():
+    return []
+=======
 from fastapi import APIRouter, Depends, HTTPException
 from uuid import UUID
 from typing import List
@@ -39,3 +48,4 @@ async def get_category_filters(
     """Список доступных фильтров для категории"""
     filters = await repo.get_category_filters(category_id)
     return {"filters": filters}
+>>>>>>> upstream/master

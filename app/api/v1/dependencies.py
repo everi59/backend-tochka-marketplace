@@ -1,3 +1,14 @@
+<<<<<<< HEAD
+# Dependency utilities used across routers
+from typing import List
+
+from app.infrastructure.config.config import APP_CONFIG
+
+# Synchronous helper for CORS origins
+
+def get_cors_origins() -> List[str]:
+    return APP_CONFIG.get_cors_origins()
+=======
 from fastapi import Depends, Request
 from app.infrastructure.database.adapters.pg_connection import DatabaseConnection
 from app.core.repositories.product_repository import ProductRepository
@@ -65,3 +76,4 @@ async def get_invoice_service(
         invoice_repo=invoice_repo,
         sku_repo=sku_repo
     )
+>>>>>>> upstream/master

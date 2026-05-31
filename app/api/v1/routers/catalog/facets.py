@@ -1,3 +1,12 @@
+<<<<<<< HEAD
+from fastapi import APIRouter
+
+router = APIRouter()
+
+@router.get("/", tags=["Catalog: Facets"])
+async def list_facets():
+    return []
+=======
 from fastapi import APIRouter, Depends, Query
 from uuid import UUID
 from app.core.repositories.filter_repository import FilterRepository
@@ -26,3 +35,4 @@ async def get_breadcrumbs(
     """Построение навигационной цепочки"""
     breadcrumbs = await repo.get_breadcrumbs(category_id)
     return BreadcrumbListResponseDTO(breadcrumbs=breadcrumbs)
+>>>>>>> upstream/master

@@ -1,3 +1,12 @@
+<<<<<<< HEAD
+from fastapi import APIRouter
+
+router = APIRouter()
+
+@router.get("/", tags=["Catalog: Products"])
+async def list_products():
+    return []
+=======
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Optional, List
 from uuid import UUID
@@ -91,3 +100,4 @@ async def get_sku(
     if not sku or sku.product_id != product_id:
         raise HTTPException(status_code=404, detail="SKU не найден")
     return sku
+>>>>>>> upstream/master
