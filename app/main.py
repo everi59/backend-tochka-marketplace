@@ -6,9 +6,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.api.v1 import b2b_router, b2c_router
+from app.core.store import NeoMarketStore
 from app.infrastructure.database.adapters.pg_connection import DatabaseConnection
 from app.infrastructure.config.config import APP_CONFIG, DB_CONFIG
-from app.api.v1.routers import api_v1_router
 
 # Настройка логирования
 logging.basicConfig(
@@ -26,15 +27,21 @@ async def lifespan(app: FastAPI):
 
     # Initialize database
     logger.info("Creating DatabaseConnection...")
-    db_connection = DatabaseConnection()
+    db_connection = None
+    try:
+        db_connection = DatabaseConnection()
+    except Exception as exc:
+        logger.warning("Database startup skipped: %s", exc)
 
     # Проверка подключения (опционально)
-    if await db_connection.health_check():
-        logger.info(f"Database connected: {DB_CONFIG.DB_HOST}:{DB_CONFIG.DB_PORT}")
-    else:
-        logger.error("Database connection failed!")
+    if db_connection is not None:
+        if await db_connection.health_check():
+            logger.info(f"Database connected: {DB_CONFIG.DB_HOST}:{DB_CONFIG.DB_PORT}")
+        else:
+            logger.error("Database connection failed!")
 
     app.state.db_connection = db_connection
+    app.state.store = NeoMarketStore()
 
     # Create directories для статики
     _ensure_directories()
@@ -45,7 +52,8 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("=== APPLICATION SHUTDOWN ===")
-    await db_connection.close()
+    if db_connection is not None:
+        await db_connection.close()
 
 
 def _ensure_directories():
@@ -69,6 +77,11 @@ app = FastAPI(
     debug=APP_CONFIG.DEBUG,
 )
 
+# Provide eager defaults for app state so imports and tests can access them
+# even before the lifespan context is entered.
+app.state.store = NeoMarketStore()
+app.state.db_connection = None
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
@@ -84,7 +97,8 @@ if static_dir.exists():
     app.mount("/static", StaticFiles(directory=APP_CONFIG.STATIC_DIR), name="static")
 
 # Include routers
-app.include_router(api_v1_router, prefix=APP_CONFIG.API_PREFIX)
+app.include_router(b2c_router)
+app.include_router(b2b_router)
 
 
 @app.get("/health", tags=["Health"])

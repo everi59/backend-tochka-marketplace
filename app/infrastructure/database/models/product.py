@@ -6,6 +6,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Optional, List
 from app.infrastructure.database.models.base import Base
+from app.infrastructure.database.models.collection import collection_products
 
 
 class ProductStatus(str, PyEnum):
@@ -60,6 +61,22 @@ class Product(Base):
     skus: Mapped[List["Sku"]] = relationship(
         "Sku",
         back_populates="product",
+        cascade="all, delete-orphan"
+    )
+    favorites: Mapped[List["Favorite"]] = relationship(
+        "Favorite",
+        back_populates="product",
+        cascade="all, delete-orphan"
+    )
+    collections: Mapped[List["Collection"]] = relationship(
+        "Collection",
+        secondary=collection_products,
+        back_populates="products"
+    )
+    moderation_queue: Mapped[Optional["ModerationQueue"]] = relationship(
+        "ModerationQueue",
+        back_populates="product",
+        uselist=False,
         cascade="all, delete-orphan"
     )
 

@@ -1,19 +1,18 @@
+import asyncio
 from logging.config import fileConfig
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from sqlalchemy import pool, text
+from sqlalchemy.ext.asyncio import create_async_engine
 from alembic import context
 import sys
-from pathlib import Path
+from os.path import abspath, dirname
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Добавляем корень проекта в PYTHONPATH
+sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
-from app.infrastructure.database.models.base import Base
-from app.infrastructure.database.models import category, product, sku
-from app.infrastructure.config.config import DB_CONFIG
+# ⭐ ВАЖНО: Укажи правильный путь к своему Base!
+from app.infrastructure.database.models.base import Base  # <-- ПРОВЕРЬ ЭТОТ ПУТЬ
 
 config = context.config
-
-config.set_main_option("sqlalchemy.url", DB_CONFIG.get_url(is_async=False))
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
@@ -33,22 +32,32 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
-def run_migrations_online() -> None:
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
+def do_run_migrations(connection):
+    context.configure(connection=connection, target_metadata=target_metadata)
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+async def run_async_migrations(conn):
+    await conn.run_sync(do_run_migrations)
+
+
+async def run_migrations_online() -> None:
+    # Берём URL из alembic.ini или переопределяем из env/settings
+    url = config.get_main_option("sqlalchemy.url")
+
+    connectable = create_async_engine(
+        url,
         poolclass=pool.NullPool,
     )
-    with connectable.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata
-        )
-        with context.begin_transaction():
-            context.run_migrations()
+
+    async with connectable.connect() as connection:
+        await run_async_migrations(connection)
+
+    await connectable.dispose()
 
 
 if context.is_offline_mode():
     run_migrations_offline()
 else:
-    run_migrations_online()
+    asyncio.run(run_migrations_online())

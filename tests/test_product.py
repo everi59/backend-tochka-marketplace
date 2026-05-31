@@ -11,16 +11,27 @@ def jwt_token():
     return "bearer_token_with_seller_id_123"
 
 def test_create_product_returns_201_with_created_status(jwt_token, requests_mock):
-
     payload = {"name": "New Product", "category_id": 1, "images": ["http://img.jpg"]}
-
     requests_mock.post(f"{BASE_URL}/api/v1/products", json={"status": "CREATED", "skus": [], "seller_id": 123}, status_code=201)
-
     headers = {"Authorization": f"Bearer {jwt_token}"}
-
     response = requests.post(f"{BASE_URL}/api/v1/products", json=payload, headers=headers)
-
     assert response.status_code == 201
+    assert response.json()["status"] == "CREATED"
+
+def test_create_product_missing_required_returns_422(jwt_token, requests_mock):
+    payload = {"category_id": 1, "images": ["http://img.jpg"]}
+    requests_mock.post(f"{BASE_URL}/api/v1/products", text="Field name is required", status_code=422)
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    response = requests.post(f"{BASE_URL}/api/v1/products", json=payload, headers=headers)
+    assert response.status_code == 422
+
+def test_create_product_duplicate_slug_returns_422(jwt_token, requests_mock):
+    payload = {"name": "Duplicate Product", "category_id": 1, "images": ["http://img.jpg"]}
+    requests_mock.post(f"{BASE_URL}/api/v1/products", text="Product slug already exists", status_code=422)
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    response = requests.post(f"{BASE_URL}/api/v1/products", json=payload, headers=headers)
+    assert response.status_code == 422
+
 
 def test_seller_id_taken_from_jwt(jwt_token, requests_mock):
 

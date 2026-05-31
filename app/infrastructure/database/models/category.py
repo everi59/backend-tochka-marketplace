@@ -33,13 +33,14 @@ class Category(Base):
     parent: Mapped[Optional["Category"]] = relationship(
         "Category",
         foreign_keys=[parent_id],
-        back_populates="children"
+        back_populates="children",
+        remote_side=[id]
     )
     children: Mapped[List["Category"]] = relationship(
         "Category",
         foreign_keys=[parent_id],
         back_populates="parent",
-        cascade="all, delete-orphan"
+        lazy="noload"
     )
     products: Mapped[List["Product"]] = relationship(
         "Product",
