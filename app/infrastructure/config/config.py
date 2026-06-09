@@ -56,6 +56,9 @@ class AppConfig(Config):
     CORS_ALLOWED_ORIGINS: str = Field(default="http://localhost:3000,http://localhost:5173")
     CORS_ALLOW_CREDENTIALS: bool = Field(default=True)
 
+    # Internal service auth
+    B2B_SERVICE_KEY: str = Field(default="svc")
+
     def get_cors_origins(self) -> List[str]:
         origins = [o.strip() for o in self.CORS_ALLOWED_ORIGINS.split(",") if o.strip()]
         if self.DEBUG and "*" not in origins:

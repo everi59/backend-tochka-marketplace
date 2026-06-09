@@ -2,16 +2,20 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from app.core.base import ServiceError
 from app.core.services.base import BaseService
 
 
 class CatalogService(BaseService):
+    def is_public_product(self, product: dict[str, Any]) -> bool:
+        if product['status'] != 'MODERATED' or product['deleted']:
+            return False
+        return any(self.store.product_service.active_quantity(self.store.skus[sku_id]) > 0 for sku_id in product['skus'])
+
     def public_product_ids(self) -> list[str]:
         ids = []
         for product in self.store.products.values():
-            if product['status'] != 'MODERATED' or product['deleted']:
-                continue
-            if any(self.store.product_service.active_quantity(self.store.skus[sku_id]) > 0 for sku_id in product['skus']):
+            if self.is_public_product(product):
                 ids.append(product['id'])
         return ids
 
@@ -61,7 +65,43 @@ class CatalogService(BaseService):
             'images': self.store.clone(sku['images']),
         }
 
+    def public_product_short(self, product_id: str) -> dict[str, Any]:
+        product = self.store.product_service.require_product(product_id)
+        return {
+            'id': product['id'],
+            'title': product['title'],
+            'slug': product['slug'],
+            'status': product['status'],
+            'category_id': product['category_id'],
+            'created_at': product['created_at'].isoformat().replace('+00:00', 'Z'),
+        }
+
+    def catalog_facets(self, category_id: str) -> dict[str, Any]:
+        if category_id not in self.store.categories:
+            raise ServiceError('NOT_FOUND', 'Category not found', 404)
+        products = [
+            product
+            for product in self.store.products.values()
+            if product['category_id'] == category_id and self.is_public_product(product)
+        ]
+        facets_map: dict[str, dict[str, int]] = {}
+        for product in products:
+            for item in product['characteristics']:
+                values = facets_map.setdefault(item['name'], {})
+                values[item['value']] = values.get(item['value'], 0) + 1
+        facets = [
+            {
+                'name': name,
+                'values': [{'value': value, 'count': count} for value, count in sorted(values.items())],
+            }
+            for name, values in sorted(facets_map.items())
+        ]
+        return {'category_id': category_id, 'facets': facets}
+
     def list_catalog_products(self, limit: int, offset: int, query: Optional[str], sort: str, filter_data: Optional[dict[str, Any]]) -> dict[str, Any]:
+        allowed_sorts = {'price_asc', 'price_desc', 'new'}
+        if sort not in allowed_sorts:
+            raise ServiceError('BAD_REQUEST', "Invalid sort value. Allowed values: price_asc, price_desc, new", 400)
         products = [self.store.products[product_id] for product_id in self.public_product_ids()]
         if query:
             q = query.lower()

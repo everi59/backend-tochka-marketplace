@@ -19,7 +19,11 @@ async def b2c_favorites(request: Request, authorization: Optional[str] = Header(
     store = get_store(request)
     try:
         buyer_id = buyer_id_from_auth(store, authorization)
-        cards = [store.catalog_product_card(product_id) for product_id in store.favorites.get(buyer_id, set()) if product_id in store.products]
+        cards = [
+            store.catalog_product_card(product_id)
+            for product_id in store.favorites.get(buyer_id, set())
+            if product_id in store.public_product_ids()
+        ]
         total = len(cards)
         return {"items": cards[offset : offset + limit], "total_count": total, "limit": limit, "offset": offset}
     except ServiceError as exc:

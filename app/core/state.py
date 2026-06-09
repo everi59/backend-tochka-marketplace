@@ -26,6 +26,8 @@ class NeoMarketState:
     reserve_idempotency: dict[str, dict[str, Any]] = field(default_factory=dict)
     event_idempotency: dict[str, dict[str, Any]] = field(default_factory=dict)
     moderation_idempotency: dict[str, dict[str, Any]] = field(default_factory=dict)
+    b2b_events: list[dict[str, Any]] = field(default_factory=list)
+    moderation_events: list[dict[str, Any]] = field(default_factory=list)
     banners: list[dict[str, Any]] = field(default_factory=list)
     collections: list[dict[str, Any]] = field(default_factory=list)
     order_counter: int = 1

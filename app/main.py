@@ -2,12 +2,14 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1 import b2b_router, b2c_router
-from app.core.store import NeoMarketStore
+from app.core.store import NeoMarketStore, ServiceError
 from app.infrastructure.database.adapters.pg_connection import DatabaseConnection
 from app.infrastructure.config.config import APP_CONFIG, DB_CONFIG
 
@@ -77,6 +79,51 @@ app = FastAPI(
     debug=APP_CONFIG.DEBUG,
 )
 
+
+def _flat_error_message(detail: object, default: str) -> str:
+    if isinstance(detail, list):
+        parts = []
+        for item in detail:
+            if isinstance(item, dict):
+                location = ".".join(str(part) for part in item.get("loc", []) if part != "body")
+                message = item.get("msg", default)
+                parts.append(f"{location}: {message}" if location else str(message))
+            else:
+                parts.append(str(item))
+        return "; ".join(parts) or default
+    if isinstance(detail, dict):
+        if "message" in detail:
+            return str(detail["message"])
+        return "; ".join(f"{key}: {value}" for key, value in detail.items()) or default
+    if isinstance(detail, str):
+        return detail
+    return default
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    return JSONResponse(
+        status_code=422,
+        content={"code": "VALIDATION_ERROR", "message": _flat_error_message(exc.errors(), "Validation error")},
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    if isinstance(exc.detail, dict) and {"code", "message"}.issubset(exc.detail):
+        payload = {"code": exc.detail["code"], "message": exc.detail["message"]}
+    else:
+        payload = {"code": "HTTP_ERROR", "message": _flat_error_message(exc.detail, "HTTP error")}
+    return JSONResponse(status_code=exc.status_code, content=payload)
+
+
+@app.exception_handler(ServiceError)
+async def service_error_handler(request: Request, exc: ServiceError) -> JSONResponse:
+    payload = {"code": exc.code, "message": exc.message}
+    if exc.details:
+        payload["details"] = exc.details
+    return JSONResponse(status_code=exc.status_code, content=payload)
+
 # Provide eager defaults for app state so imports and tests can access them
 # even before the lifespan context is entered.
 app.state.store = NeoMarketStore()
@@ -104,7 +151,8 @@ app.include_router(b2b_router)
 @app.get("/health", tags=["Health"])
 async def health_check():
     """Health check endpoint"""
-    db_status = await app.state.db_connection.health_check() if hasattr(app.state, 'db_connection') else False
+    db_connection = getattr(app.state, "db_connection", None)
+    db_status = await db_connection.health_check() if db_connection is not None else False
     return {
         "status": "ok" if db_status else "degraded",
         "version": APP_CONFIG.APP_VERSION,

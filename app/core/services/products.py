@@ -7,17 +7,43 @@ from app.core.services.base import BaseService
 
 
 class ProductService(BaseService):
+    def _slugify(self, title: str) -> str:
+        return title.lower().replace(' ', '-')
+
+    def _moderation_event(self, product_id: str, event_type: str) -> dict[str, Any]:
+        return {
+            'idempotency_key': self.store.new_id(),
+            'product_id': product_id,
+            'event_type': event_type,
+            'occurred_at': iso(utcnow()),
+        }
+
+    def _b2c_event(self, event_type: str, payload: dict[str, Any]) -> dict[str, Any]:
+        return {
+            'idempotency_key': self.store.new_id(),
+            'event_type': event_type,
+            'occurred_at': iso(utcnow()),
+            'payload': payload,
+        }
+
+    def _remove_sku_from_carts(self, sku_id: str) -> None:
+        for cart in self.store.carts.values():
+            cart['items'].pop(sku_id, None)
+
     def create_product(self, seller_id: str, data: dict[str, Any]) -> dict[str, Any]:
         if data['category_id'] not in self.store.categories:
             raise ServiceError('NOT_FOUND', 'Category not found', 404)
+        slug = data.get('slug') or self._slugify(data['title'])
+        if any(product['seller_id'] == seller_id and product['slug'] == slug for product in self.store.products.values()):
+            raise ServiceError('CONFLICT', 'Product slug already exists', 409)
         now = utcnow()
         product = {
             'id': self.store.new_id(),
             'seller_id': seller_id,
             'category_id': data['category_id'],
             'title': data['title'],
-            'slug': data.get('slug') or data['title'].lower().replace(' ', '-'),
-            'description': data['description'],
+            'slug': slug,
+            'description': data.get('description'),
             'status': 'CREATED',
             'deleted': False,
             'blocking_reason_id': None,
@@ -47,6 +73,7 @@ class ProductService(BaseService):
             product['characteristics'] = [self._make_characteristic(item) for item in data['characteristics']]
         if product['status'] in {'MODERATED', 'BLOCKED'}:
             product['status'] = 'ON_MODERATION'
+            self.store.engagement_service.emit_moderation_event(self._moderation_event(product['id'], 'EDITED'))
         product['updated_at'] = utcnow()
         return self.store.clone(product)
 
@@ -57,6 +84,10 @@ class ProductService(BaseService):
             raise ServiceError('FORBIDDEN', 'Product is hard blocked', 403)
         product['deleted'] = True
         product['updated_at'] = utcnow()
+        self.store.engagement_service.emit_moderation_event(self._moderation_event(product['id'], 'DELETED'))
+        self.store.engagement_service.emit_b2b_event(
+            self._b2c_event('PRODUCT_DELETED', {'product_id': product['id'], 'sku_ids': list(product['skus'])})
+        )
 
     def create_sku(self, seller_id: str, data: dict[str, Any]) -> dict[str, Any]:
         product = self.require_product(data['product_id'])
@@ -102,6 +133,7 @@ class ProductService(BaseService):
             sku['characteristics'] = [self._make_characteristic(item) for item in data['characteristics']]
         if product['status'] in {'MODERATED', 'BLOCKED'}:
             product['status'] = 'ON_MODERATION'
+            self.store.engagement_service.emit_moderation_event(self._moderation_event(product['id'], 'EDITED'))
         sku['updated_at'] = utcnow()
         product['updated_at'] = utcnow()
         return self.store.clone(sku)
@@ -110,9 +142,19 @@ class ProductService(BaseService):
         sku = self.require_sku(sku_id)
         product = self.require_product(sku['product_id'])
         self.ensure_seller_owns_product(seller_id, product)
+        if product['status'] == 'HARD_BLOCKED':
+            raise ServiceError('FORBIDDEN', 'Product is hard blocked', 403)
         if sku['reserved_quantity'] > 0:
             raise ServiceError('CONFLICT', 'There are active reservations', 409)
+        self.store.engagement_service.emit_b2b_event(
+            self._b2c_event('SKU_OUT_OF_STOCK', {'sku_id': sku['id'], 'product_id': product['id'], 'available_quantity': 0})
+        )
+        self._remove_sku_from_carts(sku_id)
         product['skus'] = [item for item in product['skus'] if item != sku_id]
+        if not product['skus'] and product['status'] == 'ON_MODERATION':
+            product['status'] = 'CREATED'
+            self.store.engagement_service.emit_moderation_event(self._moderation_event(product['id'], 'DELETED'))
+        product['updated_at'] = utcnow()
         del self.store.skus[sku_id]
 
     def adjust_stock(self, sku_id: str, delta: int) -> None:

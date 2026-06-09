@@ -80,6 +80,13 @@ class ProductRepository(SqlAlchemyRepository[Product]):
         )
         return result.scalar_one_or_none()
 
+    async def get_by_seller_and_slug(self, seller_id: UUID, slug: str) -> Optional[Product]:
+        result = await self.session.execute(
+            select(Product)
+            .where(Product.seller_id == seller_id, Product.slug == slug)
+        )
+        return result.scalar_one_or_none()
+
     async def get_similar(
             self,
             product_id: UUID,

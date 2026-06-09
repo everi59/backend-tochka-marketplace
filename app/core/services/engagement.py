@@ -7,6 +7,14 @@ from app.core.services.base import BaseService
 
 
 class EngagementService(BaseService):
+    def emit_b2b_event(self, event: dict[str, Any], process: bool = True) -> None:
+        self.store.b2b_events.append(self.store.clone(event))
+        if process:
+            self.handle_b2b_event(event)
+
+    def emit_moderation_event(self, event: dict[str, Any]) -> None:
+        self.store.moderation_events.append(self.store.clone(event))
+
     def notify(self, buyer_id: str, notification_type: str, title: str, body: str, payload: dict[str, Any]) -> None:
         notification = {
             'id': self.store.new_id(),
@@ -80,6 +88,12 @@ class EngagementService(BaseService):
         if event['event_type'] == 'MODERATED':
             product['status'] = 'MODERATED'
             product['blocking_reason_id'] = None
+            product['moderator_comment'] = event.get('moderator_comment')
+        elif event['event_type'] == 'DELETED':
+            product['deleted'] = True
+            product['moderator_comment'] = event.get('moderator_comment')
+        elif event['event_type'] == 'EDITED':
+            product['status'] = 'ON_MODERATION'
             product['moderator_comment'] = event.get('moderator_comment')
         else:
             product['status'] = 'HARD_BLOCKED' if event.get('hard_block') else 'BLOCKED'

@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 
 from app.core.auth import extract_bearer, hash_password, verify_password
 from app.core.store import NeoMarketStore, ServiceError, iso, utcnow
+from app.infrastructure.config.config import APP_CONFIG
 
 
 def error_response(exc: ServiceError) -> JSONResponse:
@@ -15,6 +16,11 @@ def error_response(exc: ServiceError) -> JSONResponse:
     if exc.details:
         payload["details"] = exc.details
     return JSONResponse(status_code=exc.status_code, content=jsonable_encoder(payload))
+
+
+def require_service_key(x_service_key: Optional[str]) -> None:
+    if not x_service_key or x_service_key != APP_CONFIG.B2B_SERVICE_KEY:
+        raise ServiceError("UNAUTHORIZED", "Invalid service key", 401)
 
 
 def parse_deep(prefix: str, query_params: list[tuple[str, str]]) -> dict[str, Any]:

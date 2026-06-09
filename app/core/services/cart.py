@@ -33,7 +33,8 @@ class CartService(BaseService):
             is_available = product['status'] == 'MODERATED' and not product['deleted'] and available_quantity > 0
             valid_quantity = quantity <= available_quantity
             line_total = (sku['price'] - sku['discount']) * quantity
-            subtotal += line_total
+            if is_available:
+                subtotal += line_total
             items_count += quantity
             is_valid = is_valid and is_available and valid_quantity
             items.append(

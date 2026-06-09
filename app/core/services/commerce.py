@@ -8,6 +8,8 @@ from app.core.services.base import BaseService
 
 class CommerceService(BaseService):
     def create_invoice(self, seller_id: str, items: list[dict[str, Any]]) -> dict[str, Any]:
+        if not items:
+            raise ServiceError('BAD_REQUEST', 'Invoice items must not be empty', 400)
         now = utcnow()
         invoice = {
             'id': self.store.new_id(),
@@ -21,6 +23,10 @@ class CommerceService(BaseService):
         }
         for item in items:
             sku = self.store.product_service.require_sku(item['sku_id'])
+            product = self.store.product_service.require_product(sku['product_id'])
+            self.store.product_service.ensure_seller_owns_product(seller_id, product)
+            if product['status'] != 'MODERATED' or product['deleted']:
+                raise ServiceError('BAD_REQUEST', 'Only moderated SKU can be added to invoice', 400)
             invoice['items'].append({'id': self.store.new_id(), 'sku_id': sku['id'], 'quantity': int(item['quantity']), 'accepted_quantity': 0})
         self.store.invoices[invoice['id']] = invoice
         return self.store.clone(invoice)
@@ -131,12 +137,24 @@ class CommerceService(BaseService):
         order = self.store.orders.get(order_id)
         if not order or order['buyer_id'] != buyer_id:
             raise ServiceError('NOT_FOUND', 'Order not found', 404)
-        if order['status'] not in {'CREATED', 'PAID', 'ASSEMBLING'}:
+        if order['status'] not in {'CREATED', 'PAID'}:
             raise ServiceError('CONFLICT', 'Order cannot be cancelled in current status', 409)
-        order['status'] = 'CANCELLED'
         order['cancel_reason'] = reason
-        order['status_history'].append({'status': 'CANCELLED', 'changed_at': iso(utcnow()), 'reason': reason})
         unreserve_items = [{'sku_id': item['sku_id'], 'quantity': item['quantity']} for item in order['items']]
-        self.unreserve_inventory(order_id, unreserve_items)
-        self.store.engagement_service.notify(buyer_id, 'ORDER_STATUS_CHANGED', 'Order cancelled', f"Order {order['number']} has been cancelled", {'order_id': order_id})
+        try:
+            self.unreserve_inventory(order_id, unreserve_items)
+            order['status'] = 'CANCELLED'
+            order['cancel_error'] = None
+            order['status_history'].append({'status': 'CANCELLED', 'changed_at': iso(utcnow()), 'reason': reason})
+        except ServiceError as exc:
+            order['status'] = 'CANCEL_PENDING'
+            order['cancel_error'] = {'code': exc.code, 'message': exc.message, 'details': self.store.clone(exc.details)}
+            order['status_history'].append({'status': 'CANCEL_PENDING', 'changed_at': iso(utcnow()), 'reason': reason})
+        title = 'Order cancelled' if order['status'] == 'CANCELLED' else 'Order cancellation pending'
+        body = (
+            f"Order {order['number']} has been cancelled"
+            if order['status'] == 'CANCELLED'
+            else f"Order {order['number']} cancellation is pending"
+        )
+        self.store.engagement_service.notify(buyer_id, 'ORDER_STATUS_CHANGED', title, body, {'order_id': order_id})
         return self.store.clone(order)

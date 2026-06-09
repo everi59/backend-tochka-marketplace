@@ -28,8 +28,22 @@ async def b2c_catalog_categories_tree(request: Request):
 async def b2c_catalog_products(request: Request, limit: int = 20, offset: int = 0, q: Optional[str] = None, sort: str = "popularity"):
     store = get_store(request)
     filter_data = parse_deep("filter", list(request.query_params.multi_items()))
-    mapped_sort = {"popularity": "price_asc", "new": "new"}.get(sort, sort)
-    return store.list_catalog_products(limit, offset, q, mapped_sort, filter_data)
+    mapped_sort = {"popularity": "price_asc", "new": "new", "price_asc": "price_asc", "price_desc": "price_desc"}.get(sort)
+    try:
+        if mapped_sort is None:
+            raise ServiceError("BAD_REQUEST", "Invalid sort value. Allowed values: popularity, new, price_asc, price_desc", 400)
+        return store.list_catalog_products(limit, offset, q, mapped_sort, filter_data)
+    except ServiceError as exc:
+        return error_response(exc)
+
+
+@router.get("/catalog/facets")
+async def b2c_catalog_facets(category_id: str, request: Request):
+    store = get_store(request)
+    try:
+        return store.catalog_facets(category_id)
+    except ServiceError as exc:
+        return error_response(exc)
 
 
 @router.get("/catalog/products/{product_id}")
