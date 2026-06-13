@@ -29,11 +29,11 @@ class ProductCharacteristicPayload(BaseModel):
 
 
 class ProductCreate(BaseModel):
-    title: str = Field(..., min_length=1, max_length=512)
+    title: str = Field(..., min_length=1, max_length=255)
     category_id: UUID
-    description: Optional[str] = Field(default=None, max_length=5000)
+    description: str = Field(..., min_length=1, max_length=5000)
     slug: Optional[str] = Field(default=None, min_length=3, max_length=255)
-    images: list[ProductImagePayload] = Field(default_factory=list)
+    images: list[ProductImagePayload] = Field(..., min_length=1)
     characteristics: list[ProductCharacteristicPayload] = Field(default_factory=list)
 
 
@@ -71,13 +71,32 @@ def _product_response_from_db(product: Product) -> dict[str, Any]:
 async def b2b_list_products(
     request: Request,
     authorization: Optional[str] = Header(None),
+    x_service_key: Optional[str] = Header(None),
     limit: int = 20,
     offset: int = 0,
     status: Optional[str] = None,
+    category: Optional[str] = None,
+    category_id: Optional[str] = None,
+    search: Optional[str] = None,
+    sort: str = "date_desc",
+    ids: Optional[str] = None,
     include_deleted: bool = False,
 ):
     store = get_store(request)
     try:
+        if x_service_key is not None:
+            require_service_key(x_service_key)
+            filters = {"category_id": category_id or category, "attributes": {}}
+            mapped_sort = {"date_desc": "new", "created_desc": "new", "new": "new", "price_asc": "price_asc", "price_desc": "price_desc", "popular": "popular"}.get(sort)
+            if mapped_sort is None:
+                raise ServiceError("BAD_REQUEST", "Invalid sort value. Allowed values: price_asc, price_desc, date_desc", 400)
+            response = store.list_catalog_products(limit, offset, search, mapped_sort, filters)
+            if ids:
+                requested_ids = {item.strip() for item in ids.split(",") if item.strip()}
+                response["items"] = [item for item in response["items"] if item["id"] in requested_ids]
+                response["total_count"] = len(response["items"])
+            response["items"] = [store.product_response_b2b(item["id"], public=True) for item in response["items"]]
+            return response
         seller = get_seller(store, authorization)
         return store.list_seller_products(seller["id"], limit, offset, status, include_deleted)
     except ServiceError as exc:
@@ -157,6 +176,11 @@ async def b2b_patch_product(product_id: str, payload: dict[str, Any], request: R
         return store.product_response_b2b(product_id)
     except ServiceError as exc:
         return error_response(exc)
+
+
+@router.put("/products/{product_id}")
+async def b2b_put_product(product_id: str, payload: dict[str, Any], request: Request, authorization: Optional[str] = Header(None)):
+    return await b2b_patch_product(product_id, payload, request, authorization)
 
 
 @router.delete("/products/{product_id}", status_code=204)

@@ -67,7 +67,7 @@ async def b2c_order_cancel(order_id: str, payload: Optional[dict[str, Any]], req
     store = get_store(request)
     try:
         buyer_id = buyer_id_from_auth(store, authorization)
-        return store.cancel_order(buyer_id, order_id, (payload or {}).get("reason"))
+        return await store.cancel_order(request, buyer_id, order_id, (payload or {}).get("reason"))
     except ServiceError as exc:
         return error_response(exc)
 

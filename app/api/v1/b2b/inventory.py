@@ -23,6 +23,11 @@ async def b2b_inventory_reserve(payload: dict[str, Any], request: Request, x_ser
         return error_response(exc)
 
 
+@router.post("/reserve")
+async def b2b_reserve(payload: dict[str, Any], request: Request, x_service_key: Optional[str] = Header(None)):
+    return await b2b_inventory_reserve(payload, request, x_service_key)
+
+
 @router.post("/inventory/unreserve")
 async def b2b_inventory_unreserve(payload: dict[str, Any], request: Request, x_service_key: Optional[str] = Header(None)):
     store = get_store(request)
@@ -33,6 +38,11 @@ async def b2b_inventory_unreserve(payload: dict[str, Any], request: Request, x_s
         return error_response(ServiceError("VALIDATION_ERROR", f"Missing field {exc}", 422))
     except ServiceError as exc:
         return error_response(exc)
+
+
+@router.post("/unreserve")
+async def b2b_unreserve(payload: dict[str, Any], request: Request, x_service_key: Optional[str] = Header(None)):
+    return await b2b_inventory_unreserve(payload, request, x_service_key)
 
 
 @router.post("/inventory/fulfill")
@@ -47,3 +57,6 @@ async def b2b_inventory_fulfill(payload: dict[str, Any], request: Request, x_ser
         return error_response(exc)
 
 
+@router.post("/fulfill")
+async def b2b_fulfill(payload: dict[str, Any], request: Request, x_service_key: Optional[str] = Header(None)):
+    return await b2b_inventory_fulfill(payload, request, x_service_key)

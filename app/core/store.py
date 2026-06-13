@@ -79,7 +79,7 @@ class NeoMarketStore:
                 'description': 'Флагманский смартфон Apple',
                 'category_id': phones_id,
                 'slug': 'iphone-15',
-                'images': [],
+                'images': [{'url': 'https://example.com/iphone-15.jpg', 'ordering': 0}],
                 'characteristics': [
                     {'name': 'brand', 'value': 'apple'},
                     {'name': 'memory', 'value': '256'},
@@ -95,7 +95,7 @@ class NeoMarketStore:
                 'discount': 100000,
                 'cost_price': 7500000,
                 'article': 'APL-IP15-256-BLK',
-                'images': [],
+                'images': [{'url': 'https://example.com/iphone-15-sku.jpg', 'ordering': 0}],
                 'characteristics': [
                     {'name': 'color', 'value': 'black'},
                     {'name': 'memory', 'value': '256'},

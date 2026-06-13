@@ -2,8 +2,11 @@
 
 from typing import Any, Optional
 
+import httpx
+
 from app.core.base import ServiceError, iso, utcnow
 from app.core.services.base import BaseService
+from app.infrastructure.config.config import APP_CONFIG
 
 
 class CommerceService(BaseService):
@@ -22,6 +25,8 @@ class CommerceService(BaseService):
             'accepted_by': None,
         }
         for item in items:
+            if int(item['quantity']) <= 0:
+                raise ServiceError('BAD_REQUEST', 'quantity must be > 0', 400)
             sku = self.store.product_service.require_sku(item['sku_id'])
             product = self.store.product_service.require_product(sku['product_id'])
             self.store.product_service.ensure_seller_owns_product(seller_id, product)
@@ -35,18 +40,30 @@ class CommerceService(BaseService):
         invoice = self.store.invoices.get(invoice_id)
         if not invoice:
             raise ServiceError('NOT_FOUND', 'Invoice not found', 404)
-        accepted_map = {item['invoice_item_id']: int(item['accepted_quantity']) for item in accepted_items or []}
+        accepted_map = {}
+        for accepted in accepted_items or []:
+            key = accepted.get('invoice_item_id')
+            if key is None and accepted.get('sku_id') is not None:
+                key = next((item['id'] for item in invoice['items'] if item['sku_id'] == accepted['sku_id']), None)
+            if key is not None:
+                accepted_map[key] = int(accepted['accepted_quantity'])
         all_full = True
         any_partial = False
+        any_accepted = False
         for item in invoice['items']:
             accepted_qty = accepted_map.get(item['id'], item['quantity'])
             accepted_qty = max(0, min(item['quantity'], accepted_qty))
             item['accepted_quantity'] = accepted_qty
             self.store.product_service.adjust_stock(item['sku_id'], accepted_qty)
+            if accepted_qty > 0:
+                any_accepted = True
             if accepted_qty != item['quantity']:
                 all_full = False
                 any_partial = True
-        invoice['status'] = 'ACCEPTED' if all_full else 'PARTIALLY_ACCEPTED' if any_partial else 'CREATED'
+        if not any_accepted:
+            invoice['status'] = 'REJECTED'
+        else:
+            invoice['status'] = 'ACCEPTED' if all_full else 'PARTIALLY_ACCEPTED' if any_partial else 'CREATED'
         invoice['updated_at'] = utcnow()
         invoice['accepted_at'] = utcnow()
         return self.store.clone(invoice)
@@ -59,13 +76,21 @@ class CommerceService(BaseService):
         for item in items:
             sku = self.store.product_service.require_sku(item['sku_id'])
             quantity = int(item['quantity'])
+            if quantity <= 0:
+                raise ServiceError('BAD_REQUEST', 'quantity must be > 0', 400)
             if self.store.product_service.active_quantity(sku) < quantity:
                 problems.append({'sku_id': sku['id'], 'available_quantity': self.store.product_service.active_quantity(sku)})
         if problems:
             raise ServiceError('CONFLICT', 'Reserve failed', 409, {'items': problems})
         for item in items:
             sku = self.store.product_service.require_sku(item['sku_id'])
-            sku['reserved_quantity'] += int(item['quantity'])
+            quantity = int(item['quantity'])
+            sku['reserved_quantity'] += quantity
+            if self.store.product_service.active_quantity(sku) == 0:
+                product = self.store.product_service.require_product(sku['product_id'])
+                self.store.engagement_service.emit_b2b_event(
+                    self.store.product_service._b2c_event('SKU_OUT_OF_STOCK', {'sku_id': sku['id'], 'product_id': product['id'], 'available_quantity': 0})
+                )
         response = {'order_id': order_id, 'status': 'RESERVED', 'reserved_at': iso(utcnow())}
         self.store.reserve_idempotency[idempotency_key] = response
         return self.store.clone(response)
@@ -73,16 +98,28 @@ class CommerceService(BaseService):
     def unreserve_inventory(self, order_id: str, items: list[dict[str, Any]]) -> dict[str, Any]:
         for item in items:
             sku = self.store.product_service.require_sku(item['sku_id'])
-            sku['reserved_quantity'] = max(0, sku['reserved_quantity'] - int(item['quantity']))
+            quantity = int(item['quantity'])
+            if quantity <= 0:
+                raise ServiceError('BAD_REQUEST', 'quantity must be > 0', 400)
+            sku['reserved_quantity'] = max(0, sku['reserved_quantity'] - quantity)
         return {'order_id': order_id, 'status': 'UNRESERVED', 'processed_at': iso(utcnow())}
 
     def fulfill_inventory(self, order_id: str, items: list[dict[str, Any]]) -> dict[str, Any]:
+        existing = self.store.fulfill_idempotency.get(order_id)
+        if existing:
+            return self.store.clone(existing)
         for item in items:
             sku = self.store.product_service.require_sku(item['sku_id'])
             quantity = int(item['quantity'])
+            if quantity <= 0:
+                raise ServiceError('BAD_REQUEST', 'quantity must be > 0', 400)
+            if sku['reserved_quantity'] < quantity:
+                raise ServiceError('CONFLICT', 'Cannot fulfill more than reserved quantity', 409)
             sku['reserved_quantity'] = max(0, sku['reserved_quantity'] - quantity)
             sku['stock_quantity'] = max(0, sku['stock_quantity'] - quantity)
-        return {'order_id': order_id, 'status': 'FULFILLED', 'processed_at': iso(utcnow())}
+        response = {'order_id': order_id, 'status': 'FULFILLED', 'processed_at': iso(utcnow())}
+        self.store.fulfill_idempotency[order_id] = response
+        return self.store.clone(response)
 
     def create_order(self, buyer_id: str, payload: dict[str, Any], idempotency_key: str) -> tuple[dict[str, Any], bool]:
         current_cart = self.store.cart_service.build_cart_response(buyer_id, None)
@@ -133,22 +170,36 @@ class CommerceService(BaseService):
         self.store.engagement_service.notify(buyer_id, 'ORDER_STATUS_CHANGED', 'Order created', f"Order {order['number']} has been paid", {'order_id': order_id})
         return self.store.clone(order), True
 
-    def cancel_order(self, buyer_id: str, order_id: str, reason: Optional[str]) -> dict[str, Any]:
+    async def cancel_order(self, request: Any, buyer_id: str, order_id: str, reason: Optional[str]) -> dict[str, Any]:
         order = self.store.orders.get(order_id)
         if not order or order['buyer_id'] != buyer_id:
             raise ServiceError('NOT_FOUND', 'Order not found', 404)
-        if order['status'] not in {'CREATED', 'PAID'}:
+        if order['status'] not in {'CREATED', 'PAID', 'ASSEMBLING'}:
             raise ServiceError('CONFLICT', 'Order cannot be cancelled in current status', 409)
         order['cancel_reason'] = reason
         unreserve_items = [{'sku_id': item['sku_id'], 'quantity': item['quantity']} for item in order['items']]
         try:
-            self.unreserve_inventory(order_id, unreserve_items)
+            transport = httpx.ASGITransport(app=request.app)
+            async with httpx.AsyncClient(transport=transport, base_url=APP_CONFIG.B2B_BASE_URL, timeout=10.0) as client:
+                response = await client.post(
+                    '/api/v1/unreserve',
+                    json={'order_id': order_id, 'items': unreserve_items},
+                    headers={'X-Service-Key': APP_CONFIG.B2B_SERVICE_KEY},
+                )
+                response.raise_for_status()
             order['status'] = 'CANCELLED'
             order['cancel_error'] = None
             order['status_history'].append({'status': 'CANCELLED', 'changed_at': iso(utcnow()), 'reason': reason})
-        except ServiceError as exc:
+        except (httpx.RequestError, httpx.HTTPStatusError, ServiceError) as exc:
+            details: dict[str, Any] = {'error': str(exc)}
+            if isinstance(exc, httpx.HTTPStatusError):
+                details['status_code'] = exc.response.status_code
+                try:
+                    details['response'] = exc.response.json()
+                except Exception:
+                    details['response'] = exc.response.text
             order['status'] = 'CANCEL_PENDING'
-            order['cancel_error'] = {'code': exc.code, 'message': exc.message, 'details': self.store.clone(exc.details)}
+            order['cancel_error'] = details
             order['status_history'].append({'status': 'CANCEL_PENDING', 'changed_at': iso(utcnow()), 'reason': reason})
         title = 'Order cancelled' if order['status'] == 'CANCELLED' else 'Order cancellation pending'
         body = (

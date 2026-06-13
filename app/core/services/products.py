@@ -11,11 +11,15 @@ class ProductService(BaseService):
         return title.lower().replace(' ', '-')
 
     def _moderation_event(self, product_id: str, event_type: str) -> dict[str, Any]:
+        product = self.store.products.get(product_id, {})
         return {
             'idempotency_key': self.store.new_id(),
             'product_id': product_id,
+            'seller_id': product.get('seller_id'),
             'event_type': event_type,
+            'event': event_type.removeprefix('PRODUCT_'),
             'occurred_at': iso(utcnow()),
+            'date': iso(utcnow()),
         }
 
     def _b2c_event(self, event_type: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -33,6 +37,8 @@ class ProductService(BaseService):
     def create_product(self, seller_id: str, data: dict[str, Any]) -> dict[str, Any]:
         if data['category_id'] not in self.store.categories:
             raise ServiceError('NOT_FOUND', 'Category not found', 404)
+        if not data.get('images'):
+            raise ServiceError('BAD_REQUEST', 'At least one product image is required', 400)
         slug = data.get('slug') or self._slugify(data['title'])
         if any(product['seller_id'] == seller_id and product['slug'] == slug for product in self.store.products.values()):
             raise ServiceError('CONFLICT', 'Product slug already exists', 409)
@@ -80,6 +86,8 @@ class ProductService(BaseService):
     def delete_product(self, seller_id: str, product_id: str) -> None:
         product = self.require_product(product_id)
         self.ensure_seller_owns_product(seller_id, product)
+        if product['deleted']:
+            raise ServiceError('BAD_REQUEST', 'Product already deleted', 400)
         if product['status'] == 'HARD_BLOCKED':
             raise ServiceError('FORBIDDEN', 'Product is hard blocked', 403)
         product['deleted'] = True
@@ -94,6 +102,15 @@ class ProductService(BaseService):
         self.ensure_seller_owns_product(seller_id, product)
         if product['status'] == 'HARD_BLOCKED':
             raise ServiceError('FORBIDDEN', 'Product is hard blocked', 403)
+        if not data.get('name'):
+            raise ServiceError('BAD_REQUEST', 'name is required', 400)
+        if int(data.get('price', 0)) <= 0:
+            raise ServiceError('BAD_REQUEST', 'price must be a positive integer', 400)
+        if data.get('cost_price') is None or int(data.get('cost_price', 0)) <= 0:
+            raise ServiceError('BAD_REQUEST', 'cost_price must be a positive integer', 400)
+        images_data = data.get('images') or ([{'url': data['image'], 'ordering': 0}] if data.get('image') else [])
+        if not images_data:
+            raise ServiceError('BAD_REQUEST', 'image is required', 400)
         now = utcnow()
         sku = {
             'id': self.store.new_id(),
@@ -105,7 +122,7 @@ class ProductService(BaseService):
             'stock_quantity': int(data.get('stock_quantity', 0)),
             'reserved_quantity': 0,
             'article': data.get('article'),
-            'images': [self._make_image(item) for item in data.get('images', [])],
+            'images': [self._make_image(item) for item in images_data],
             'characteristics': [self._make_characteristic(item) for item in data.get('characteristics', [])],
             'created_at': now,
             'updated_at': now,
@@ -113,6 +130,10 @@ class ProductService(BaseService):
         self.store.skus[sku['id']] = sku
         if not product['skus']:
             product['status'] = 'ON_MODERATION'
+            self.store.engagement_service.emit_moderation_event(self._moderation_event(product['id'], 'PRODUCT_CREATED'))
+        elif product['status'] in {'MODERATED', 'BLOCKED'}:
+            product['status'] = 'ON_MODERATION'
+            self.store.engagement_service.emit_moderation_event(self._moderation_event(product['id'], 'EDITED'))
         product['skus'].append(sku['id'])
         product['updated_at'] = now
         return self.store.clone(sku)
@@ -146,9 +167,10 @@ class ProductService(BaseService):
             raise ServiceError('FORBIDDEN', 'Product is hard blocked', 403)
         if sku['reserved_quantity'] > 0:
             raise ServiceError('CONFLICT', 'There are active reservations', 409)
-        self.store.engagement_service.emit_b2b_event(
-            self._b2c_event('SKU_OUT_OF_STOCK', {'sku_id': sku['id'], 'product_id': product['id'], 'available_quantity': 0})
-        )
+        if product['status'] == 'MODERATED' and self.active_quantity(sku) > 0:
+            self.store.engagement_service.emit_b2b_event(
+                self._b2c_event('SKU_OUT_OF_STOCK', {'sku_id': sku['id'], 'product_id': product['id'], 'available_quantity': 0})
+            )
         self._remove_sku_from_carts(sku_id)
         product['skus'] = [item for item in product['skus'] if item != sku_id]
         if not product['skus'] and product['status'] == 'ON_MODERATION':
@@ -192,6 +214,9 @@ class ProductService(BaseService):
             'slug': product['slug'],
             'description': product['description'],
             'status': product['status'],
+            'blocked': product['status'] in {'BLOCKED', 'HARD_BLOCKED'},
+            'blocking_reason': product.get('blocking_reason'),
+            'field_reports': self.store.clone(product.get('field_reports', [])),
             'images': self.store.clone(product['images']),
             'characteristics': self.store.clone(product['characteristics']),
             'skus': skus,

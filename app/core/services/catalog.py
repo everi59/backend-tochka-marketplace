@@ -30,8 +30,10 @@ class CatalogService(BaseService):
         return {
             'id': product['id'],
             'name': product['title'],
+            'title': product['title'],
             'slug': product['slug'],
             'category': self.store.category_service.category_ref(product['category_id']),
+            'category_id': product['category_id'],
             'min_price': min_price,
             'old_price': old_price if old_price and old_price != min_price else None,
             'has_stock': any(self.store.product_service.active_quantity(sku) > 0 for sku in sku_list),
@@ -67,6 +69,9 @@ class CatalogService(BaseService):
 
     def public_product_short(self, product_id: str) -> dict[str, Any]:
         product = self.store.product_service.require_product(product_id)
+        sku_list = [self.store.skus[sku_id] for sku_id in product['skus'] if sku_id in self.store.skus]
+        prices = [sku['price'] - sku['discount'] for sku in sku_list if self.store.product_service.active_quantity(sku) > 0]
+        min_price = min(prices) if prices else min((sku['price'] - sku['discount'] for sku in sku_list), default=0)
         return {
             'id': product['id'],
             'title': product['title'],
@@ -74,6 +79,7 @@ class CatalogService(BaseService):
             'status': product['status'],
             'category_id': product['category_id'],
             'created_at': product['created_at'].isoformat().replace('+00:00', 'Z'),
+            'min_price': min_price,
         }
 
     def catalog_facets(self, category_id: str) -> dict[str, Any]:
@@ -99,9 +105,9 @@ class CatalogService(BaseService):
         return {'category_id': category_id, 'facets': facets}
 
     def list_catalog_products(self, limit: int, offset: int, query: Optional[str], sort: str, filter_data: Optional[dict[str, Any]]) -> dict[str, Any]:
-        allowed_sorts = {'price_asc', 'price_desc', 'new'}
+        allowed_sorts = {'price_asc', 'price_desc', 'new', 'popular'}
         if sort not in allowed_sorts:
-            raise ServiceError('BAD_REQUEST', "Invalid sort value. Allowed values: price_asc, price_desc, new", 400)
+            raise ServiceError('BAD_REQUEST', "Invalid sort value. Allowed values: price_asc, price_desc, new, popular", 400)
         products = [self.store.products[product_id] for product_id in self.public_product_ids()]
         if query:
             q = query.lower()
@@ -126,7 +132,7 @@ class CatalogService(BaseService):
                     p for p in products if any(item['name'] == attr_name and item['value'] in allowed for item in p['characteristics'])
                 ]
         cards = [self.catalog_product_card(product['id']) for product in products]
-        if sort == 'price_asc':
+        if sort in {'price_asc', 'popular'}:
             cards.sort(key=lambda item: item['min_price'])
         elif sort == 'price_desc':
             cards.sort(key=lambda item: item['min_price'], reverse=True)

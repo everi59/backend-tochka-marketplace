@@ -4,10 +4,30 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="11e50fec-ed06-4aea-b56a-79f00dd66ac6" name="Changes" comment="All tested things">
+    <list default="true" id="11e50fec-ed06-4aea-b56a-79f00dd66ac6" name="Changes" comment="Big rework">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/api/v1/b2b/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/b2b/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/api/v1/b2b/categories.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/b2b/categories.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/api/v1/b2b/images.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/b2b/images.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/api/v1/b2b/inventory.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/b2b/inventory.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/api/v1/b2b/invoices.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/b2b/invoices.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/api/v1/b2b/moderation.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/b2b/moderation.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/api/v1/b2b/products.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/b2b/products.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/api/v1/b2b/sellers.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/b2b/sellers.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/api/v1/b2b/skus.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/b2b/skus.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/api/v1/b2c/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/b2c/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/api/v1/b2c/catalog.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/b2c/catalog.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/api/v1/b2c/orders.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/b2c/orders.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/core/services/cart.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/services/cart.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/core/services/catalog.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/services/catalog.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/core/services/commerce.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/services/commerce.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/core/services/engagement.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/services/engagement.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/core/services/products.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/services/products.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/core/state.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/state.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/core/store.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/store.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/infrastructure/config/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/infrastructure/config/config.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/test_unified_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_unified_api.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -49,6 +69,7 @@
     &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/ilyak/PycharmProjects/open-ideas-backend&quot;,
     &quot;settings.editor.selected.configurable&quot;: &quot;preferences.lookFeel&quot;
   }
 }</component>
@@ -183,7 +204,15 @@
       <option name="project" value="LOCAL" />
       <updated>1779373862513</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="Big rework">
+      <option name="closed" value="true" />
+      <created>1779455638410</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1779455638410</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -204,6 +233,7 @@
     <MESSAGE value="Update README.md" />
     <MESSAGE value="Update file structure" />
     <MESSAGE value="All tested things" />
-    <option name="LAST_COMMIT_MESSAGE" value="All tested things" />
+    <MESSAGE value="Big rework" />
+    <option name="LAST_COMMIT_MESSAGE" value="Big rework" />
   </component>
 </project>

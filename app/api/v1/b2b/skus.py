@@ -57,6 +57,11 @@ async def b2b_patch_sku(sku_id: str, payload: dict[str, Any], request: Request, 
         return error_response(exc)
 
 
+@router.put("/skus/{sku_id}")
+async def b2b_put_sku(sku_id: str, payload: dict[str, Any], request: Request, authorization: Optional[str] = Header(None)):
+    return await b2b_patch_sku(sku_id, payload, request, authorization)
+
+
 @router.delete("/skus/{sku_id}", status_code=204)
 async def b2b_delete_sku(sku_id: str, request: Request, authorization: Optional[str] = Header(None)):
     store = get_store(request)

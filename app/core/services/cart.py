@@ -17,7 +17,7 @@ class CartService(BaseService):
     def ensure_cart(self, buyer_id: Optional[str], session_id: Optional[str]) -> dict[str, object]:
         key = self.cart_key(buyer_id, session_id)
         if key not in self.store.carts:
-            self.store.carts[key] = {'id': key, 'buyer_id': buyer_id, 'session_id': session_id, 'items': {}, 'updated_at': utcnow()}
+            self.store.carts[key] = {'id': key, 'buyer_id': buyer_id, 'session_id': session_id, 'items': {}, 'item_availability': {}, 'updated_at': utcnow()}
         return self.store.carts[key]
 
     def build_cart_response(self, buyer_id: Optional[str], session_id: Optional[str]) -> dict[str, object]:
@@ -26,11 +26,26 @@ class CartService(BaseService):
         subtotal = 0
         items_count = 0
         is_valid = True
+        availability_map = cart.get('item_availability', {})
         for sku_id, quantity in cart['items'].items():
             sku = self.store.product_service.require_sku(sku_id)
             product = self.store.product_service.require_product(sku['product_id'])
             available_quantity = self.store.product_service.active_quantity(sku)
-            is_available = product['status'] == 'MODERATED' and not product['deleted'] and available_quantity > 0
+            derived_available = product['status'] == 'MODERATED' and not product['deleted'] and available_quantity > 0
+            availability_meta = availability_map.get(sku_id, {})
+            is_available = derived_available
+            unavailable_reason = None
+            if not derived_available:
+                unavailable_reason = availability_meta.get('unavailable_reason')
+                if not unavailable_reason:
+                    if product['deleted']:
+                        unavailable_reason = 'deleted'
+                    elif product['status'] in {'BLOCKED', 'HARD_BLOCKED'}:
+                        unavailable_reason = 'blocked'
+                    elif available_quantity <= 0:
+                        unavailable_reason = 'out_of_stock'
+                    else:
+                        unavailable_reason = 'blocked'
             valid_quantity = quantity <= available_quantity
             line_total = (sku['price'] - sku['discount']) * quantity
             if is_available:
@@ -48,7 +63,9 @@ class CartService(BaseService):
                     'unit_price_at_add': sku['price'] - sku['discount'],
                     'line_total': line_total,
                     'available_quantity': available_quantity,
+                    'available': is_available,
                     'is_available': is_available,
+                    'unavailable_reason': unavailable_reason,
                     'image': sku['images'][0] if sku['images'] else None,
                 }
             )
@@ -63,6 +80,7 @@ class CartService(BaseService):
             raise ServiceError('CONFLICT', 'Not enough stock', 409)
         cart = self.ensure_cart(buyer_id, session_id)
         cart['items'][sku_id] = cart['items'].get(sku_id, 0) + quantity
+        cart.setdefault('item_availability', {}).pop(sku_id, None)
         cart['updated_at'] = utcnow()
         return self.build_cart_response(buyer_id, session_id)
 
@@ -74,18 +92,21 @@ class CartService(BaseService):
         if sku_id not in cart['items']:
             raise ServiceError('NOT_FOUND', 'SKU not found in cart', 404)
         cart['items'][sku_id] = quantity
+        cart.setdefault('item_availability', {}).pop(sku_id, None)
         cart['updated_at'] = utcnow()
         return self.build_cart_response(buyer_id, session_id)
 
     def remove_cart_item(self, buyer_id: Optional[str], session_id: Optional[str], sku_id: str) -> dict[str, object]:
         cart = self.ensure_cart(buyer_id, session_id)
         cart['items'].pop(sku_id, None)
+        cart.setdefault('item_availability', {}).pop(sku_id, None)
         cart['updated_at'] = utcnow()
         return self.build_cart_response(buyer_id, session_id)
 
     def clear_cart(self, buyer_id: Optional[str], session_id: Optional[str]) -> None:
         cart = self.ensure_cart(buyer_id, session_id)
         cart['items'] = {}
+        cart['item_availability'] = {}
         cart['updated_at'] = utcnow()
 
     def validate_cart(self, buyer_id: Optional[str], session_id: Optional[str]) -> dict[str, object]:

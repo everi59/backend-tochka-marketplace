@@ -58,6 +58,7 @@ class AppConfig(Config):
 
     # Internal service auth
     B2B_SERVICE_KEY: str = Field(default="svc")
+    B2B_BASE_URL: str = Field(default="http://testserver")
 
     def get_cors_origins(self) -> List[str]:
         origins = [o.strip() for o in self.CORS_ALLOWED_ORIGINS.split(",") if o.strip()]

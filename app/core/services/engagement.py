@@ -52,12 +52,15 @@ class EngagementService(BaseService):
             product = self.store.product_service.require_product(payload['product_id'])
             if event_type == 'PRODUCT_DELETED':
                 product['deleted'] = True
+                unavailable_reason = 'deleted'
             else:
                 product['status'] = 'HARD_BLOCKED' if event_type == 'PRODUCT_HARD_BLOCKED' else 'BLOCKED'
+                unavailable_reason = 'blocked'
             for cart in self.store.carts.values():
+                availability = cart.setdefault('item_availability', {})
                 for sku_id in list(cart['items'].keys()):
                     if self.store.skus[sku_id]['product_id'] == product['id']:
-                        del cart['items'][sku_id]
+                        availability[sku_id] = {'available': False, 'unavailable_reason': unavailable_reason}
             for buyer_id, product_map in self.store.subscriptions.items():
                 if product['id'] in product_map:
                     self.notify(buyer_id, 'SYSTEM', 'Product unavailable', product['title'], {'product_id': product['id']})
@@ -85,18 +88,30 @@ class EngagementService(BaseService):
             return
         self.store.moderation_idempotency[key] = {'accepted_at': iso(utcnow())}
         product = self.store.product_service.require_product(event['product_id'])
-        if event['event_type'] == 'MODERATED':
+        event_type = event.get('event_type') or event.get('status')
+        if event_type == 'MODERATED':
             product['status'] = 'MODERATED'
             product['blocking_reason_id'] = None
+            product['blocking_reason'] = None
+            product['field_reports'] = []
             product['moderator_comment'] = event.get('moderator_comment')
-        elif event['event_type'] == 'DELETED':
+        elif event_type == 'DELETED':
             product['deleted'] = True
             product['moderator_comment'] = event.get('moderator_comment')
-        elif event['event_type'] == 'EDITED':
+        elif event_type == 'EDITED':
             product['status'] = 'ON_MODERATION'
             product['moderator_comment'] = event.get('moderator_comment')
         else:
             product['status'] = 'HARD_BLOCKED' if event.get('hard_block') else 'BLOCKED'
-            product['blocking_reason_id'] = event.get('blocking_reason_id')
+            blocking_reason = event.get('blocking_reason')
+            product['blocking_reason'] = self.store.clone(blocking_reason)
+            product['blocking_reason_id'] = event.get('blocking_reason_id') or (blocking_reason or {}).get('id')
+            product['field_reports'] = self.store.clone(event.get('field_reports') or [])
             product['moderator_comment'] = event.get('moderator_comment')
+            self.emit_b2b_event(
+                self.store.product_service._b2c_event(
+                    'PRODUCT_BLOCKED',
+                    {'product_id': product['id'], 'sku_ids': list(product['skus'])},
+                )
+            )
         product['updated_at'] = utcnow()

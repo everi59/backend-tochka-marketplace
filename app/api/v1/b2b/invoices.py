@@ -71,7 +71,8 @@ async def b2b_accept_invoice(invoice_id: str, payload: Optional[dict[str, Any]],
     store = get_store(request)
     try:
         get_seller(store, authorization)
-        invoice = store.accept_invoice(invoice_id, (payload or {}).get("accepted_items"))
+        body = payload or {}
+        invoice = store.accept_invoice(invoice_id, body.get("accepted_items") or body.get("items"))
         return invoice
     except ServiceError as exc:
         return error_response(exc)

@@ -30,7 +30,7 @@ services:
     env_file:
       - .env.docker
     environment:
-      DB_HOST: db
+      DB_HOST: marketplace_db
     volumes:
       - ./app:/app/app
     depends_on:

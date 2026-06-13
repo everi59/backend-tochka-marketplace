@@ -1,7 +1,6 @@
 from fastapi import APIRouter
 
 from .addresses import router as addresses_router
-from .auth import router as auth_router
 from .buyers import router as buyers_router
 from .cart import router as cart_router
 from .catalog import router as catalog_router
@@ -10,6 +9,7 @@ from .favorites import router as favorites_router
 from .notifications import router as notifications_router
 from .orders import router as orders_router
 from .payment_methods import router as payment_methods_router
+from ..auth_shared import router as auth_router
 
 router = APIRouter(prefix="/api/v1")
 router.include_router(auth_router)

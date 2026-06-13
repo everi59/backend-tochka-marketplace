@@ -22,3 +22,15 @@ async def b2b_moderation_events(payload: dict[str, Any], request: Request, x_ser
         return error_response(exc)
 
 
+@router.post("/events/moderation")
+async def b2b_events_moderation(payload: dict[str, Any], request: Request, x_service_key: Optional[str] = Header(None)):
+    store = get_store(request)
+    normalized = dict(payload)
+    if "event_type" not in normalized and "status" in normalized:
+        normalized["event_type"] = normalized["status"]
+    try:
+        require_service_key(x_service_key)
+        store.handle_moderation_event(normalized)
+        return {"ok": True}
+    except ServiceError as exc:
+        return error_response(exc)
