@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1 import b2b_router, b2c_router
+from app.api.v1.moderation_service import router as moderation_router
 from app.core.store import NeoMarketStore, ServiceError
 from app.infrastructure.database.adapters.pg_connection import DatabaseConnection
 from app.infrastructure.config.config import APP_CONFIG, DB_CONFIG
@@ -146,6 +147,7 @@ if static_dir.exists():
 # Include routers
 app.include_router(b2c_router)
 app.include_router(b2b_router)
+app.include_router(moderation_router, prefix="/api/v1/moderation", tags=["Moderation"])
 
 
 @app.get("/health", tags=["Health"])
