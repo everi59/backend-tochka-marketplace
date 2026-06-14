@@ -464,7 +464,7 @@ def test_sku_delete_rules_and_events() -> None:
         deleted = client.delete(f"/api/v1/skus/{sku_id}", headers=seller_headers)
         assert deleted.status_code == 204
         assert app.state.store.products[product_id]["status"] == "CREATED"
-        assert app.state.store.moderation_events[-1]["event_type"] == "DELETED"
+        assert app.state.store.moderation_events[-1]["event_type"] == "PRODUCT_DELETED"
         assert all(event["event_type"] != "SKU_OUT_OF_STOCK" for event in app.state.store.b2b_events)
 
         product2_id = client.post(
@@ -507,7 +507,7 @@ def test_product_delete_emits_events_and_is_idempotent() -> None:
         deleted = client.delete(f"/api/v1/products/{product_id}", headers=seller_headers)
         assert deleted.status_code == 204
         assert app.state.store.products[product_id]["deleted"] is True
-        assert app.state.store.moderation_events[-1]["event_type"] == "DELETED"
+        assert app.state.store.moderation_events[-1]["event_type"] == "PRODUCT_DELETED"
         assert app.state.store.b2b_events[-1]["event_type"] == "PRODUCT_DELETED"
 
         repeat = client.delete(f"/api/v1/products/{product_id}", headers=seller_headers)
@@ -520,14 +520,26 @@ def test_b2b_create_product_validates_required_slug_uniqueness_and_created_statu
         seller_headers = {"Authorization": f"Bearer {seller_tokens['access_token']}"}
         category_id = client.get("/api/v1/categories").json()[0]["id"]
 
-        missing_required = client.post(
+        missing_title = client.post(
             "/api/v1/products",
             headers=seller_headers,
-            json={"title": "Missing images", "description": "Missing images", "category_id": category_id},
+            json={"description": "Missing title", "category_id": category_id},
         )
-        assert missing_required.status_code == 422
-        assert "code" in missing_required.json()
-        assert "message" in missing_required.json()
+        assert missing_title.status_code == 422
+        assert "code" in missing_title.json()
+        assert "message" in missing_title.json()
+
+        no_images = client.post(
+            "/api/v1/products",
+            headers=seller_headers,
+            json={
+                "title": "No Images Product",
+                "description": "Optional images",
+                "category_id": category_id,
+            },
+        )
+        assert no_images.status_code == 201
+        assert no_images.json()["status"] == "CREATED"
 
         created = client.post(
             "/api/v1/products",

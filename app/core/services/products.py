@@ -20,6 +20,7 @@ class ProductService(BaseService):
             'event': event_type.removeprefix('PRODUCT_'),
             'occurred_at': iso(utcnow()),
             'date': iso(utcnow()),
+            'payload': {'json_after': self.store.clone(product)},
         }
 
     def _b2c_event(self, event_type: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -37,8 +38,8 @@ class ProductService(BaseService):
     def create_product(self, seller_id: str, data: dict[str, Any]) -> dict[str, Any]:
         if data['category_id'] not in self.store.categories:
             raise ServiceError('NOT_FOUND', 'Category not found', 404)
-        if not data.get('images'):
-            raise ServiceError('BAD_REQUEST', 'At least one product image is required', 400)
+        if data.get('images') is None:
+            data['images'] = []
         slug = data.get('slug') or self._slugify(data['title'])
         if any(product['seller_id'] == seller_id and product['slug'] == slug for product in self.store.products.values()):
             raise ServiceError('CONFLICT', 'Product slug already exists', 409)
@@ -79,7 +80,7 @@ class ProductService(BaseService):
             product['characteristics'] = [self._make_characteristic(item) for item in data['characteristics']]
         if product['status'] in {'MODERATED', 'BLOCKED'}:
             product['status'] = 'ON_MODERATION'
-            self.store.engagement_service.emit_moderation_event(self._moderation_event(product['id'], 'EDITED'))
+            self.store.engagement_service.emit_moderation_event(self._moderation_event(product['id'], 'PRODUCT_EDITED'))
         product['updated_at'] = utcnow()
         return self.store.clone(product)
 
@@ -92,7 +93,7 @@ class ProductService(BaseService):
             raise ServiceError('FORBIDDEN', 'Product is hard blocked', 403)
         product['deleted'] = True
         product['updated_at'] = utcnow()
-        self.store.engagement_service.emit_moderation_event(self._moderation_event(product['id'], 'DELETED'))
+        self.store.engagement_service.emit_moderation_event(self._moderation_event(product['id'], 'PRODUCT_DELETED'))
         self.store.engagement_service.emit_b2b_event(
             self._b2c_event('PRODUCT_DELETED', {'product_id': product['id'], 'sku_ids': list(product['skus'])})
         )
@@ -133,7 +134,7 @@ class ProductService(BaseService):
             self.store.engagement_service.emit_moderation_event(self._moderation_event(product['id'], 'PRODUCT_CREATED'))
         elif product['status'] in {'MODERATED', 'BLOCKED'}:
             product['status'] = 'ON_MODERATION'
-            self.store.engagement_service.emit_moderation_event(self._moderation_event(product['id'], 'EDITED'))
+            self.store.engagement_service.emit_moderation_event(self._moderation_event(product['id'], 'PRODUCT_EDITED'))
         product['skus'].append(sku['id'])
         product['updated_at'] = now
         return self.store.clone(sku)
@@ -154,7 +155,7 @@ class ProductService(BaseService):
             sku['characteristics'] = [self._make_characteristic(item) for item in data['characteristics']]
         if product['status'] in {'MODERATED', 'BLOCKED'}:
             product['status'] = 'ON_MODERATION'
-            self.store.engagement_service.emit_moderation_event(self._moderation_event(product['id'], 'EDITED'))
+            self.store.engagement_service.emit_moderation_event(self._moderation_event(product['id'], 'PRODUCT_EDITED'))
         sku['updated_at'] = utcnow()
         product['updated_at'] = utcnow()
         return self.store.clone(sku)
@@ -175,7 +176,7 @@ class ProductService(BaseService):
         product['skus'] = [item for item in product['skus'] if item != sku_id]
         if not product['skus'] and product['status'] == 'ON_MODERATION':
             product['status'] = 'CREATED'
-            self.store.engagement_service.emit_moderation_event(self._moderation_event(product['id'], 'DELETED'))
+            self.store.engagement_service.emit_moderation_event(self._moderation_event(product['id'], 'PRODUCT_DELETED'))
         product['updated_at'] = utcnow()
         del self.store.skus[sku_id]
 

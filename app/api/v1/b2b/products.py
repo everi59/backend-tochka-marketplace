@@ -33,7 +33,7 @@ class ProductCreate(BaseModel):
     category_id: UUID
     description: str = Field(..., min_length=1, max_length=5000)
     slug: Optional[str] = Field(default=None, min_length=3, max_length=255)
-    images: list[ProductImagePayload] = Field(..., min_length=1)
+    images: list[ProductImagePayload] = Field(default_factory=list)
     characteristics: list[ProductCharacteristicPayload] = Field(default_factory=list)
 
 

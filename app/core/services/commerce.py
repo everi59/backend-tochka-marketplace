@@ -182,7 +182,7 @@ class CommerceService(BaseService):
             transport = httpx.ASGITransport(app=request.app)
             async with httpx.AsyncClient(transport=transport, base_url=APP_CONFIG.B2B_BASE_URL, timeout=10.0) as client:
                 response = await client.post(
-                    '/api/v1/unreserve',
+                    '/api/v1/inventory/unreserve',
                     json={'order_id': order_id, 'items': unreserve_items},
                     headers={'X-Service-Key': APP_CONFIG.B2B_SERVICE_KEY},
                 )

@@ -87,7 +87,8 @@ class EngagementService(BaseService):
         if key in self.store.moderation_idempotency:
             return
         self.store.moderation_idempotency[key] = {'accepted_at': iso(utcnow())}
-        product = self.store.product_service.require_product(event['product_id'])
+        product_id = event.get('product_id') or (event.get('payload') or {}).get('product_id')
+        product = self.store.product_service.require_product(product_id)
         event_type = event.get('event_type') or event.get('status')
         if event_type == 'MODERATED':
             product['status'] = 'MODERATED'

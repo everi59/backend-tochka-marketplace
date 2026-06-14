@@ -4,30 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="11e50fec-ed06-4aea-b56a-79f00dd66ac6" name="Changes" comment="Big rework">
+    <list default="true" id="11e50fec-ed06-4aea-b56a-79f00dd66ac6" name="Changes" comment="Fix after quests">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/b2b/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/b2b/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/b2b/categories.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/b2b/categories.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/b2b/images.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/b2b/images.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/b2b/inventory.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/b2b/inventory.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/b2b/invoices.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/b2b/invoices.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/b2b/moderation.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/b2b/moderation.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/b2b/products.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/b2b/products.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/b2b/sellers.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/b2b/sellers.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/b2b/skus.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/b2b/skus.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/b2c/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/b2c/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/b2c/catalog.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/b2c/catalog.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/b2c/orders.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/b2c/orders.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/services/cart.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/services/cart.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/services/catalog.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/services/catalog.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/services/commerce.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/services/commerce.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/services/engagement.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/services/engagement.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/services/products.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/services/products.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/state.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/state.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/store.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/store.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/infrastructure/config/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/infrastructure/config/config.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/test_unified_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_unified_api.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -45,6 +23,7 @@
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="UPDATE_TYPE" value="REBASE" />
   </component>
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
@@ -212,7 +191,15 @@
       <option name="project" value="LOCAL" />
       <updated>1779455638410</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="Fix after quests">
+      <option name="closed" value="true" />
+      <created>1781351445931</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1781351445931</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -234,6 +221,7 @@
     <MESSAGE value="Update file structure" />
     <MESSAGE value="All tested things" />
     <MESSAGE value="Big rework" />
-    <option name="LAST_COMMIT_MESSAGE" value="Big rework" />
+    <MESSAGE value="Fix after quests" />
+    <option name="LAST_COMMIT_MESSAGE" value="Fix after quests" />
   </component>
 </project>
