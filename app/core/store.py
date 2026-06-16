@@ -124,14 +124,14 @@ class NeoMarketStore:
             }
         ]
         self.state.blocking_reasons = [
-            {'id': 'a7b8c9d0-1234-5678-ef01-890123456789', 'title': 'Описание не соответствует товару', 'hard_block': False},
-            {'id': 'b8c9d0e1-2345-6789-f012-901234567890', 'title': 'Изображение не соответствует товару', 'hard_block': False},
-            {'id': 'c9d0e1f2-3456-7890-0123-012345678901', 'title': 'Некорректная категория товара', 'hard_block': False},
-            {'id': 'd0e1f2a3-4567-8901-1234-123456789012', 'title': 'Недостаточно информации о товаре', 'hard_block': False},
-            {'id': 'e1f2a3b4-5678-9012-2345-234567890123', 'title': 'Нецензурные или оскорбительные материалы', 'hard_block': False},
-            {'id': 'f2a3b4c5-6789-0123-3456-345678901234', 'title': 'Дублирование существующего товара', 'hard_block': False},
-            {'id': 'a3b4c5d6-7890-1234-4567-456789012345', 'title': 'Некорректная цена', 'hard_block': False},
-            {'id': 'b4c5d6e7-8901-2345-5678-567890123456', 'title': 'Контрафактный товар', 'hard_block': True},
-            {'id': 'c5d6e7f8-9012-3456-6789-678901234567', 'title': 'Товар запрещён к продаже на территории РФ', 'hard_block': True},
-            {'id': 'd6e7f8a9-0123-4567-7890-789012345678', 'title': 'Товар нарушает авторские права', 'hard_block': True},
+            {'id': 'a7b8c9d0-1234-5678-ef01-890123456789', 'title': 'Описание не соответствует товару', 'code': 'DESCRIPTION_MISMATCH', 'hard_block': False, 'is_active': True},
+            {'id': 'b8c9d0e1-2345-6789-f012-901234567890', 'title': 'Изображение не соответствует товару', 'code': 'IMAGE_MISMATCH', 'hard_block': False, 'is_active': True},
+            {'id': 'c9d0e1f2-3456-7890-0123-012345678901', 'title': 'Некорректная категория товара', 'code': 'WRONG_CATEGORY', 'hard_block': False, 'is_active': True},
+            {'id': 'd0e1f2a3-4567-8901-1234-123456789012', 'title': 'Недостаточно информации о товаре', 'code': 'INSUFFICIENT_INFO', 'hard_block': False, 'is_active': True},
+            {'id': 'e1f2a3b4-5678-9012-2345-234567890123', 'title': 'Нецензурные или оскорбительные материалы', 'code': 'OFFENSIVE_CONTENT', 'hard_block': False, 'is_active': True},
+            {'id': 'f2a3b4c5-6789-0123-3456-345678901234', 'title': 'Дублирование существующего товара', 'code': 'DUPLICATE_PRODUCT', 'hard_block': False, 'is_active': True},
+            {'id': 'a3b4c5d6-7890-1234-4567-456789012345', 'title': 'Некорректная цена', 'code': 'INVALID_PRICE', 'hard_block': False, 'is_active': True},
+            {'id': 'b4c5d6e7-8901-2345-5678-567890123456', 'title': 'Контрафактный товар', 'code': 'COUNTERFEIT', 'hard_block': True, 'is_active': True},
+            {'id': 'c5d6e7f8-9012-3456-6789-678901234567', 'title': 'Товар запрещён к продаже на территории РФ', 'code': 'FORBIDDEN_IN_RF', 'hard_block': True, 'is_active': True},
+            {'id': 'd6e7f8a9-0123-4567-7890-789012345678', 'title': 'Товар нарушает авторские права', 'code': 'COPYRIGHT_VIOLATION', 'hard_block': True, 'is_active': True},
         ]

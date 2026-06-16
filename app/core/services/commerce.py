@@ -174,7 +174,7 @@ class CommerceService(BaseService):
         order = self.store.orders.get(order_id)
         if not order or order['buyer_id'] != buyer_id:
             raise ServiceError('NOT_FOUND', 'Order not found', 404)
-        if order['status'] not in {'CREATED', 'PAID', 'ASSEMBLING'}:
+        if order['status'] not in {'CREATED', 'PAID', 'ASSEMBLING', 'DELIVERING'}:
             raise ServiceError('CONFLICT', 'Order cannot be cancelled in current status', 409)
         order['cancel_reason'] = reason
         unreserve_items = [{'sku_id': item['sku_id'], 'quantity': item['quantity']} for item in order['items']]
@@ -206,6 +206,45 @@ class CommerceService(BaseService):
             f"Order {order['number']} has been cancelled"
             if order['status'] == 'CANCELLED'
             else f"Order {order['number']} cancellation is pending"
+        )
+        self.store.engagement_service.notify(buyer_id, 'ORDER_STATUS_CHANGED', title, body, {'order_id': order_id})
+        return self.store.clone(order)
+
+    async def deliver_order(self, request: Any, buyer_id: str, order_id: str) -> dict[str, Any]:
+        order = self.store.orders.get(order_id)
+        if not order or order['buyer_id'] != buyer_id:
+            raise ServiceError('NOT_FOUND', 'Order not found', 404)
+        if order['status'] not in {'ASSEMBLING', 'DELIVERING'}:
+            raise ServiceError('CONFLICT', 'Order cannot be delivered in current status', 409)
+        order['status'] = 'DELIVERING'
+        order['status_history'].append({'status': 'DELIVERING', 'changed_at': iso(utcnow())})
+        fulfill_items = [{'sku_id': item['sku_id'], 'quantity': item['quantity']} for item in order['items']]
+        try:
+            transport = httpx.ASGITransport(app=request.app)
+            async with httpx.AsyncClient(transport=transport, base_url=APP_CONFIG.B2B_BASE_URL, timeout=10.0) as client:
+                response = await client.post(
+                    '/api/v1/inventory/fulfill',
+                    json={'order_id': order_id, 'items': fulfill_items},
+                    headers={'X-Service-Key': APP_CONFIG.B2B_SERVICE_KEY},
+                )
+                response.raise_for_status()
+            order['status'] = 'DELIVERED'
+            order['delivered_at'] = iso(utcnow())
+            order['status_history'].append({'status': 'DELIVERED', 'changed_at': iso(utcnow())})
+        except (httpx.RequestError, httpx.HTTPStatusError, ServiceError) as exc:
+            details: dict[str, Any] = {'error': str(exc)}
+            if isinstance(exc, httpx.HTTPStatusError):
+                details['status_code'] = exc.response.status_code
+                try:
+                    details['response'] = exc.response.json()
+                except Exception:
+                    details['response'] = exc.response.text
+            order['deliver_error'] = details
+        title = 'Order delivered' if order['status'] == 'DELIVERED' else 'Order delivery in progress'
+        body = (
+            f"Order {order['number']} has been delivered"
+            if order['status'] == 'DELIVERED'
+            else f"Order {order['number']} delivery is in progress"
         )
         self.store.engagement_service.notify(buyer_id, 'ORDER_STATUS_CHANGED', title, body, {'order_id': order_id})
         return self.store.clone(order)

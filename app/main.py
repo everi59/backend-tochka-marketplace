@@ -9,7 +9,12 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1 import b2b_router, b2c_router
-from app.api.v1.moderation_service import router as moderation_router
+from app.api.v1.moderation_service import (
+    b2b_events_router as mod_b2b_events_router,
+    queue_router as mod_queue_router,
+    tickets_router as mod_tickets_router,
+    blocking_reasons_router as mod_blocking_reasons_router,
+)
 from app.core.store import NeoMarketStore, ServiceError
 from app.infrastructure.database.adapters.pg_connection import DatabaseConnection
 from app.infrastructure.config.config import APP_CONFIG, DB_CONFIG
@@ -147,7 +152,10 @@ if static_dir.exists():
 # Include routers
 app.include_router(b2c_router)
 app.include_router(b2b_router)
-app.include_router(moderation_router, prefix="/api/v1/moderation", tags=["Moderation"])
+app.include_router(mod_b2b_events_router, prefix="/api/v1/b2b", tags=["Moderation"])
+app.include_router(mod_queue_router, prefix="/api/v1/queue", tags=["Moderation"])
+app.include_router(mod_tickets_router, prefix="/api/v1/tickets", tags=["Moderation"])
+app.include_router(mod_blocking_reasons_router, prefix="/api/v1/blocking-reasons", tags=["Moderation"])
 
 
 @app.get("/health", tags=["Health"])

@@ -72,5 +72,15 @@ async def b2c_order_cancel(order_id: str, payload: Optional[dict[str, Any]], req
         return error_response(exc)
 
 
+@router.post("/orders/{order_id}/deliver")
+async def b2c_order_deliver(order_id: str, request: Request, authorization: Optional[str] = Header(None)):
+    store = get_store(request)
+    try:
+        buyer_id = buyer_id_from_auth(store, authorization)
+        return await store.deliver_order(request, buyer_id, order_id)
+    except ServiceError as exc:
+        return error_response(exc)
+
+
 
 

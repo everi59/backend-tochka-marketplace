@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import httpx
 from typing import Any, Optional
 
 from fastapi import APIRouter, Header, Request, Response
@@ -9,8 +10,28 @@ from fastapi.responses import JSONResponse
 from app.api.v1.common import error_response, get_store, require_service_key
 from app.core.base import ServiceError, iso, utcnow
 from app.core.store import NeoMarketStore
+from app.infrastructure.config.config import APP_CONFIG
 
-router = APIRouter()
+b2b_events_router = APIRouter()
+queue_router = APIRouter()
+tickets_router = APIRouter()
+blocking_reasons_router = APIRouter()
+
+
+def _ticket_response(card: dict[str, Any]) -> dict[str, Any]:
+    kind = 'CREATE' if card.get('json_before') is None else 'EDIT'
+    return {
+        'id': card['product_id'],
+        'seller_id': card['seller_id'],
+        'kind': kind,
+        'status': card['status'],
+        'queue_priority': card['queue_priority'],
+        'json_before': card.get('json_before'),
+        'json_after': card.get('json_after'),
+        'blocking_history': card.get('blocking_history'),
+        'created_at': iso(card['date_created']),
+        'updated_at': iso(card['date_updated']),
+    }
 
 
 def _strip_private_fields(product_data: dict) -> dict:
@@ -24,9 +45,9 @@ def _strip_private_fields(product_data: dict) -> dict:
 def _compute_queue_priority(old_status: str, blocking_reason_id: Optional[str], total_active: int) -> int:
     if old_status == 'BLOCKED' and blocking_reason_id:
         return 2
-    if old_status == 'MODERATED' and total_active > 0:
+    if old_status in ('MODERATED', 'APPROVED') and total_active > 0:
         return 3
-    if old_status == 'MODERATED' and total_active == 0:
+    if old_status in ('MODERATED', 'APPROVED') and total_active == 0:
         return 4
     return 1
 
@@ -40,24 +61,46 @@ def _get_total_active(store: NeoMarketStore, product: dict) -> int:
     return total
 
 
-@router.post("/events/product")
+async def _send_to_b2b(request: Request, event: dict[str, Any]) -> None:
+    transport = httpx.ASGITransport(app=request.app)
+    async with httpx.AsyncClient(transport=transport, base_url=APP_CONFIG.B2B_BASE_URL, timeout=10.0) as client:
+        resp = await client.post(
+            '/api/v1/moderation/events',
+            json=event,
+            headers={'X-Service-Key': APP_CONFIG.B2B_SERVICE_KEY},
+        )
+        resp.raise_for_status()
+
+
+def _find_card_by_ticket_id(store: NeoMarketStore, ticket_id: str) -> Optional[dict[str, Any]]:
+    for card in store.moderation_cards.values():
+        if card['product_id'] == ticket_id:
+            return card
+    return None
+
+
+@b2b_events_router.post("/events")
 async def moderation_receive_event(payload: dict[str, Any], request: Request, x_service_key: Optional[str] = Header(None)):
     store = get_store(request)
     try:
         require_service_key(x_service_key)
-        product_id = payload.get('product_id')
-        seller_id = payload.get('seller_id')
-        event = payload.get('event')
-        if not product_id or not event:
-            raise ServiceError('BAD_REQUEST', 'product_id and event are required', 400)
+        event_type = payload.get('event_type')
+        idempotency_key = payload.get('idempotency_key')
+        if not event_type:
+            raise ServiceError('BAD_REQUEST', 'event_type is required', 400)
+        inner = payload.get('payload') or {}
+        product_id = inner.get('product_id')
+        seller_id = inner.get('seller_id')
+        if not product_id:
+            raise ServiceError('BAD_REQUEST', 'product_id is required in payload', 400)
 
         card = store.moderation_cards.get(product_id)
 
-        if event == 'CREATED':
+        if event_type == 'PRODUCT_CREATED':
             if card and card['status'] == 'HARD_BLOCKED':
-                return Response(status_code=200)
+                return Response(status_code=202)
             if card:
-                raise ServiceError('BAD_REQUEST', 'Duplicate CREATED event', 400)
+                raise ServiceError('CONFLICT', 'Duplicate PRODUCT_CREATED event', 409)
             product = store.products.get(product_id)
             if not product:
                 raise ServiceError('NOT_FOUND', 'Product not found in B2B', 404)
@@ -78,13 +121,13 @@ async def moderation_receive_event(payload: dict[str, Any], request: Request, x_
                 'date_updated': now,
                 'date_moderation': None,
             }
-            return Response(status_code=200)
+            return Response(status_code=202)
 
-        elif event == 'EDITED':
+        elif event_type == 'PRODUCT_EDITED':
             if not card:
-                raise ServiceError('BAD_REQUEST', 'EDITED event for unknown product', 400)
+                raise ServiceError('BAD_REQUEST', 'PRODUCT_EDITED event for unknown product', 400)
             if card['status'] == 'HARD_BLOCKED':
-                return Response(status_code=200)
+                return Response(status_code=202)
             old_status = card['status']
             product = store.products.get(product_id)
             if not product:
@@ -100,30 +143,35 @@ async def moderation_receive_event(payload: dict[str, Any], request: Request, x_
             card['moderator_id'] = None
             card['field_reports'] = []
             card['date_updated'] = now
-            return Response(status_code=200)
+            return Response(status_code=202)
 
-        elif event == 'DELETED':
+        elif event_type == 'PRODUCT_DELETED':
             if card:
                 del store.moderation_cards[product_id]
-            return Response(status_code=200)
+            return Response(status_code=202)
 
         else:
-            raise ServiceError('BAD_REQUEST', f'Unknown event type: {event}', 400)
+            raise ServiceError('BAD_REQUEST', f'Unknown event_type: {event_type}', 400)
 
     except ServiceError as exc:
         return error_response(exc)
 
 
-@router.post("/product-moderation/get-next")
+@queue_router.post("/claim")
 async def moderation_get_next(payload: dict[str, Any], request: Request, x_moderator_id: Optional[str] = Header(None)):
     store = get_store(request)
     try:
-        queue_id = payload.get('queueId')
+        moderator_id = x_moderator_id or 'unknown'
+        for card in store.moderation_cards.values():
+            if card['status'] == 'IN_REVIEW' and card['moderator_id'] == moderator_id:
+                raise ServiceError('CONFLICT', 'Moderator already has a ticket in review', 409)
+
+        queue_priority = payload.get('queue_priority')
         candidates = []
         for pid, card in store.moderation_cards.items():
             if card['status'] != 'PENDING':
                 continue
-            if queue_id and card['queue_priority'] != queue_id:
+            if queue_priority is not None and card['queue_priority'] != queue_priority:
                 continue
             candidates.append(card)
         if not candidates:
@@ -131,88 +179,82 @@ async def moderation_get_next(payload: dict[str, Any], request: Request, x_moder
         candidates.sort(key=lambda c: c['date_updated'])
         card = candidates[0]
         card['status'] = 'IN_REVIEW'
-        card['moderator_id'] = x_moderator_id or 'unknown'
+        card['moderator_id'] = moderator_id
         card['date_updated'] = utcnow()
-        blocking_history = None
         if card.get('blocking_reason_id') and card.get('json_before'):
             reason = next((r for r in store.blocking_reasons if r['id'] == card['blocking_reason_id']), None)
-            blocking_history = {
+            card['blocking_history'] = {
                 'blocking_reason': reason,
                 'moderator_comment': card.get('moderator_comment'),
                 'field_reports': card.get('field_reports', []),
             }
-        return {
-            'product_moderation_id': card['product_id'],
-            'product_id': card['product_id'],
-            'seller_id': card['seller_id'],
-            'status': card['status'],
-            'queue_priority': card['queue_priority'],
-            'json_before': card['json_before'],
-            'json_after': card['json_after'],
-            'blocking_history': blocking_history,
-            'date_created': iso(card['date_created']),
-            'date_updated': iso(card['date_updated']),
-        }
-    except Exception as exc:
-        return error_response(ServiceError('INTERNAL_ERROR', str(exc), 500))
+        return _ticket_response(card)
+    except ServiceError as exc:
+        return error_response(exc)
 
 
-@router.post("/products/{product_id}/approve")
-async def moderation_approve(product_id: str, payload: Optional[dict[str, Any]], request: Request, x_moderator_id: Optional[str] = Header(None)):
+@tickets_router.post("/{ticket_id}/approve")
+async def moderation_approve(ticket_id: str, payload: Optional[dict[str, Any]], request: Request, x_moderator_id: Optional[str] = Header(None)):
     store = get_store(request)
     try:
-        card = store.moderation_cards.get(product_id)
+        card = _find_card_by_ticket_id(store, ticket_id)
         if not card:
-            raise ServiceError('NOT_FOUND', 'Product not found in moderation queue', 404)
+            raise ServiceError('NOT_FOUND', 'Ticket not found', 404)
         if card['status'] == 'HARD_BLOCKED':
-            raise ServiceError('CONFLICT', 'Product is permanently blocked', 409)
+            raise ServiceError('FORBIDDEN', 'Cannot modify a hard-blocked ticket', 403)
         if card['status'] != 'IN_REVIEW':
-            raise ServiceError('CONFLICT', 'Product is not in review', 409)
+            raise ServiceError('CONFLICT', 'Ticket is not in review', 409)
         if card['moderator_id'] != (x_moderator_id or 'unknown'):
-            raise ServiceError('FORBIDDEN', 'This moderation card is not assigned to you', 403)
+            raise ServiceError('FORBIDDEN', 'This ticket is not assigned to you', 403)
 
-        product = store.products.get(product_id)
+        product = store.products.get(ticket_id)
+        if product and not product.get('skus'):
+            raise ServiceError('CONFLICT', 'Product has no SKUs, cannot approve', 409)
 
         now = utcnow()
         comment = (payload or {}).get('moderator_comment')
-        card['status'] = 'MODERATED'
+        card['status'] = 'APPROVED'
         card['date_moderation'] = now
         card['moderator_comment'] = comment
         card['blocking_reason_id'] = None
         card['field_reports'] = []
         card['date_updated'] = now
 
-        store.handle_moderation_event({
-            'idempotency_key': store.new_id(),
-            'product_id': product_id,
-            'event_type': 'MODERATED',
-            'occurred_at': iso(now),
-        })
+        try:
+            await _send_to_b2b(request, {
+                'idempotency_key': store.new_id(),
+                'product_id': ticket_id,
+                'event_type': 'MODERATED',
+                'occurred_at': iso(now),
+            })
+        except Exception:
+            pass
 
-        return {'product_id': product_id, 'status': 'MODERATED'}
+        return _ticket_response(card)
     except ServiceError as exc:
         return error_response(exc)
 
 
-@router.post("/products/{product_id}/decline")
-async def moderation_decline(product_id: str, payload: dict[str, Any], request: Request, x_moderator_id: Optional[str] = Header(None)):
+@tickets_router.post("/{ticket_id}/block")
+async def moderation_decline(ticket_id: str, payload: dict[str, Any], request: Request, x_moderator_id: Optional[str] = Header(None)):
     store = get_store(request)
     try:
-        card = store.moderation_cards.get(product_id)
+        card = _find_card_by_ticket_id(store, ticket_id)
         if not card:
-            raise ServiceError('NOT_FOUND', 'Product not found in moderation queue', 404)
+            raise ServiceError('NOT_FOUND', 'Ticket not found', 404)
         if card['status'] == 'HARD_BLOCKED':
-            raise ServiceError('CONFLICT', 'Product is permanently blocked', 409)
+            raise ServiceError('FORBIDDEN', 'Cannot modify a hard-blocked ticket', 403)
         if card['status'] != 'IN_REVIEW':
-            raise ServiceError('CONFLICT', 'Product is not in review', 409)
+            raise ServiceError('CONFLICT', 'Ticket is not in review', 409)
         if card['moderator_id'] != (x_moderator_id or 'unknown'):
-            raise ServiceError('FORBIDDEN', 'This moderation card is not assigned to you', 403)
+            raise ServiceError('FORBIDDEN', 'This ticket is not assigned to you', 403)
 
-        blocking_reason_id = payload.get('blocking_reason_id')
-        if not blocking_reason_id:
-            raise ServiceError('BAD_REQUEST', 'blocking_reason_id is required', 400)
+        blocking_reason_ids = payload.get('blocking_reason_ids', [])
+        if not blocking_reason_ids:
+            raise ServiceError('BAD_REQUEST', 'blocking_reason_ids is required', 400)
 
-        reason = next((r for r in store.blocking_reasons if r['id'] == blocking_reason_id), None)
+        first_reason_id = blocking_reason_ids[0]
+        reason = next((r for r in store.blocking_reasons if r['id'] == first_reason_id), None)
         if not reason:
             raise ServiceError('BAD_REQUEST', 'Blocking reason not found', 400)
 
@@ -220,28 +262,40 @@ async def moderation_decline(product_id: str, payload: dict[str, Any], request: 
         is_hard_block = reason.get('hard_block', False)
         card['status'] = 'HARD_BLOCKED' if is_hard_block else 'BLOCKED'
         card['date_moderation'] = now
-        card['blocking_reason_id'] = blocking_reason_id
+        card['blocking_reason_id'] = first_reason_id
         card['moderator_comment'] = payload.get('moderator_comment')
-        card['field_reports'] = payload.get('field_reports', [])
+        field_reports = payload.get('field_reports', [])
+        card['field_reports'] = [
+            {'field_name': fr.get('field_path', fr.get('field_name', '')), 'comment': fr.get('message', fr.get('comment', ''))}
+            for fr in field_reports
+        ]
         card['date_updated'] = now
 
-        store.handle_moderation_event({
-            'idempotency_key': store.new_id(),
-            'product_id': product_id,
-            'event_type': card['status'],
-            'blocking_reason': reason,
-            'moderator_comment': card['moderator_comment'],
-            'field_reports': card['field_reports'],
-            'hard_block': is_hard_block,
-            'occurred_at': iso(now),
-        })
+        try:
+            await _send_to_b2b(request, {
+                'idempotency_key': store.new_id(),
+                'product_id': ticket_id,
+                'event_type': 'BLOCKED',
+                'blocking_reason_id': first_reason_id,
+                'moderator_comment': card['moderator_comment'],
+                'field_reports': card['field_reports'],
+                'hard_block': is_hard_block,
+                'occurred_at': iso(now),
+            })
+        except Exception:
+            pass
 
-        return {'product_id': product_id, 'status': card['status']}
+        return _ticket_response(card)
     except ServiceError as exc:
         return error_response(exc)
 
 
-@router.get("/product-blocking-reasons")
-async def moderation_blocking_reasons(request: Request):
+@blocking_reasons_router.get("")
+async def moderation_blocking_reasons(request: Request, is_active: bool = True, hard_block: Optional[bool] = None):
     store = get_store(request)
-    return store.blocking_reasons
+    reasons = store.blocking_reasons
+    if is_active:
+        reasons = [r for r in reasons if r.get('is_active', True)]
+    if hard_block is not None:
+        reasons = [r for r in reasons if r.get('hard_block') == hard_block]
+    return reasons

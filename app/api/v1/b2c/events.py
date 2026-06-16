@@ -12,7 +12,7 @@ from app.core.store import NeoMarketStore, ServiceError
 
 router = APIRouter()
 
-@router.post("/b2b/events", status_code=202)
+@router.post("/events/b2b", status_code=202)
 async def b2c_b2b_events(payload: dict[str, Any], request: Request, x_service_key: Optional[str] = Header(None)):
     store = get_store(request)
     try:

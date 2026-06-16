@@ -38,6 +38,21 @@ def _get_category_id(client: TestClient) -> str:
     return client.get("/api/v1/categories").json()[0]["id"]
 
 
+def _create_sku(client: TestClient, seller_h: dict, product_id: str, name: str = "SKU-1", price: int = 1000) -> dict:
+    resp = client.post(
+        "/api/v1/skus",
+        headers=seller_h,
+        json={
+            "product_id": product_id,
+            "name": name,
+            "price": price,
+            "article": f"ART-{name}",
+        },
+    )
+    assert resp.status_code == 201
+    return resp.json()
+
+
 def _create_product(client: TestClient, seller_h: dict, category_id: str, title: str = "Test Product") -> dict:
     resp = client.post(
         "/api/v1/products",
@@ -53,21 +68,21 @@ def _create_product(client: TestClient, seller_h: dict, category_id: str, title:
     return resp.json()
 
 
-def _emit_product_event(client: TestClient, product_id: str, seller_id: str, event: str) -> None:
+def _emit_product_event(client: TestClient, product_id: str, seller_id: str, event_type: str) -> None:
     resp = client.post(
-        "/api/v1/moderation/events/product",
-        json={"product_id": product_id, "seller_id": seller_id, "event": event},
+        "/api/v1/b2b/events",
+        json={"event_type": event_type, "payload": {"product_id": product_id, "seller_id": seller_id}},
         headers=SERVICE_HEADERS,
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 202
 
 
-def _get_next(client: TestClient, moderator_id: str = "mod-1", queue_id: int | None = None) -> dict | None:
+def _get_next(client: TestClient, moderator_id: str = "mod-1", queue_priority: int | None = None) -> dict | None:
     payload = {}
-    if queue_id is not None:
-        payload["queueId"] = queue_id
+    if queue_priority is not None:
+        payload["queue_priority"] = queue_priority
     resp = client.post(
-        "/api/v1/moderation/product-moderation/get-next",
+        "/api/v1/queue/claim",
         json=payload,
         headers={**SERVICE_HEADERS, "X-Moderator-Id": moderator_id},
     )
@@ -87,7 +102,7 @@ class TestMod1ProductCreatedEvent:
             product = _create_product(client, seller_h, category_id, "Moderation Test")
             pid = product["id"]
 
-            _emit_product_event(client, pid, seller["user_id"], "CREATED")
+            _emit_product_event(client, pid, seller["user_id"], "PRODUCT_CREATED")
 
             store = app.state.store
             card = store.moderation_cards.get(pid)
@@ -97,7 +112,25 @@ class TestMod1ProductCreatedEvent:
             assert card["json_after"]["title"] == "Moderation Test"
             assert card["seller_id"] == seller["user_id"]
 
-    def test_hard_blocked_product_rejects_created(self):
+    def test_duplicate_created_returns_409(self):
+        with TestClient(app) as client:
+            seller = _create_seller(client, "mod1-dup@example.com", "1111111115")
+            seller_h = _seller_headers(seller)
+            category_id = _get_category_id(client)
+
+            product = _create_product(client, seller_h, category_id, "Dup Test")
+            pid = product["id"]
+
+            _emit_product_event(client, pid, seller["user_id"], "PRODUCT_CREATED")
+
+            resp = client.post(
+                "/api/v1/b2b/events",
+                json={"event_type": "PRODUCT_CREATED", "payload": {"product_id": pid, "seller_id": seller["user_id"]}},
+                headers=SERVICE_HEADERS,
+            )
+            assert resp.status_code == 409
+
+    def test_hard_blocked_product_ignores_created(self):
         with TestClient(app) as client:
             seller = _create_seller(client, "mod1-hb@example.com", "1111111112")
             seller_h = _seller_headers(seller)
@@ -106,21 +139,25 @@ class TestMod1ProductCreatedEvent:
             product = _create_product(client, seller_h, category_id, "HB Product")
             pid = product["id"]
 
-            _emit_product_event(client, pid, seller["user_id"], "CREATED")
-
+            _emit_product_event(client, pid, seller["user_id"], "PRODUCT_CREATED")
             _get_next(client, "mod-1")
 
-            reasons = client.get("/api/v1/moderation/product-blocking-reasons", headers=SERVICE_HEADERS).json()
+            reasons = client.get("/api/v1/blocking-reasons", headers=SERVICE_HEADERS).json()
             hard_id = next(r["id"] for r in reasons if r["hard_block"])
 
             resp = client.post(
-                f"/api/v1/moderation/products/{pid}/decline",
-                json={"blocking_reason_id": hard_id},
+                f"/api/v1/tickets/{pid}/block",
+                json={"blocking_reason_ids": [hard_id]},
                 headers={**SERVICE_HEADERS, "X-Moderator-Id": "mod-1"},
             )
             assert resp.status_code == 200
 
-            _emit_product_event(client, pid, seller["user_id"], "CREATED")
+            resp2 = client.post(
+                "/api/v1/b2b/events",
+                json={"event_type": "PRODUCT_CREATED", "payload": {"product_id": pid, "seller_id": seller["user_id"]}},
+                headers=SERVICE_HEADERS,
+            )
+            assert resp2.status_code == 202
 
             store = app.state.store
             assert store.moderation_cards[pid]["status"] == "HARD_BLOCKED"
@@ -136,7 +173,7 @@ class TestMod1EditEvent:
             product = _create_product(client, seller_h, category_id, "Edit Product")
             pid = product["id"]
 
-            _emit_product_event(client, pid, seller["user_id"], "CREATED")
+            _emit_product_event(client, pid, seller["user_id"], "PRODUCT_CREATED")
 
             store = app.state.store
             card_before = store.moderation_cards.get(pid)
@@ -150,7 +187,7 @@ class TestMod1EditEvent:
             )
             assert resp.status_code == 200
 
-            _emit_product_event(client, pid, seller["user_id"], "EDITED")
+            _emit_product_event(client, pid, seller["user_id"], "PRODUCT_EDITED")
 
             card_after = store.moderation_cards.get(pid)
             assert card_after["json_before"]["title"] == "Edit Product"
@@ -167,8 +204,8 @@ class TestMod2GetNext:
             p1 = _create_product(client, seller_h, category_id, "Q1")
             p2 = _create_product(client, seller_h, category_id, "Q2")
 
-            _emit_product_event(client, p1["id"], seller["user_id"], "CREATED")
-            _emit_product_event(client, p2["id"], seller["user_id"], "CREATED")
+            _emit_product_event(client, p1["id"], seller["user_id"], "PRODUCT_CREATED")
+            _emit_product_event(client, p2["id"], seller["user_id"], "PRODUCT_CREATED")
 
             store = app.state.store
             assert len(store.moderation_cards) >= 2
@@ -176,14 +213,36 @@ class TestMod2GetNext:
             card = _get_next(client, "mod-1")
             assert card is not None
             assert card["status"] == "IN_REVIEW"
-            assert card["json_before"] is None
-            assert card["json_after"] is not None
-            assert "blocking_history" in card
+            assert "id" in card
+            assert "kind" in card
+            assert card["kind"] in ("CREATE", "EDIT")
+            assert "created_at" in card
 
     def test_empty_queue(self):
         with TestClient(app) as client:
             card = _get_next(client, "mod-1")
             assert card is None
+
+    def test_moderator_already_in_review_returns_409(self):
+        with TestClient(app) as client:
+            seller = _create_seller(client, "mod2-dup@example.com", "2222222223")
+            seller_h = _seller_headers(seller)
+            category_id = _get_category_id(client)
+
+            p1 = _create_product(client, seller_h, category_id, "Q-Dup-1")
+            _emit_product_event(client, p1["id"], seller["user_id"], "PRODUCT_CREATED")
+
+            _get_next(client, "mod-1")
+
+            p2 = _create_product(client, seller_h, category_id, "Q-Dup-2")
+            _emit_product_event(client, p2["id"], seller["user_id"], "PRODUCT_CREATED")
+
+            resp = client.post(
+                "/api/v1/queue/claim",
+                json={},
+                headers={**SERVICE_HEADERS, "X-Moderator-Id": "mod-1"},
+            )
+            assert resp.status_code == 409
 
 
 class TestMod3Approve:
@@ -195,21 +254,24 @@ class TestMod3Approve:
 
             product = _create_product(client, seller_h, category_id, "Approve Product")
             pid = product["id"]
+            _create_sku(client, seller_h, pid)
 
-            _emit_product_event(client, pid, seller["user_id"], "CREATED")
+            _emit_product_event(client, pid, seller["user_id"], "PRODUCT_CREATED")
             card = _get_next(client, "mod-1")
             assert card is not None
 
             resp = client.post(
-                f"/api/v1/moderation/products/{pid}/approve",
+                f"/api/v1/tickets/{pid}/approve",
                 json={"moderator_comment": "Looks good"},
                 headers={**SERVICE_HEADERS, "X-Moderator-Id": "mod-1"},
             )
             assert resp.status_code == 200
-            assert resp.json()["status"] == "MODERATED"
+            body = resp.json()
+            assert body["status"] == "APPROVED"
+            assert body["kind"] == "CREATE"
 
             store = app.state.store
-            assert store.moderation_cards[pid]["status"] == "MODERATED"
+            assert store.moderation_cards[pid]["status"] == "APPROVED"
 
 
 class TestMod4DeclineBlocked:
@@ -222,20 +284,22 @@ class TestMod4DeclineBlocked:
             product = _create_product(client, seller_h, category_id, "Decline Product")
             pid = product["id"]
 
-            _emit_product_event(client, pid, seller["user_id"], "CREATED")
+            _emit_product_event(client, pid, seller["user_id"], "PRODUCT_CREATED")
             card = _get_next(client, "mod-1")
             assert card is not None
 
-            reasons = client.get("/api/v1/moderation/product-blocking-reasons", headers=SERVICE_HEADERS).json()
+            reasons = client.get("/api/v1/blocking-reasons", headers=SERVICE_HEADERS).json()
             soft_id = next(r["id"] for r in reasons if not r["hard_block"])
 
             resp = client.post(
-                f"/api/v1/moderation/products/{pid}/decline",
-                json={"blocking_reason_id": soft_id, "moderator_comment": "Needs work"},
+                f"/api/v1/tickets/{pid}/block",
+                json={"blocking_reason_ids": [soft_id], "moderator_comment": "Needs work"},
                 headers={**SERVICE_HEADERS, "X-Moderator-Id": "mod-1"},
             )
             assert resp.status_code == 200
-            assert resp.json()["status"] == "BLOCKED"
+            body = resp.json()
+            assert body["status"] == "BLOCKED"
+            assert body["kind"] == "CREATE"
 
             store = app.state.store
             assert store.moderation_cards[pid]["status"] == "BLOCKED"
@@ -252,16 +316,16 @@ class TestMod5DeclineHardBlock:
             product = _create_product(client, seller_h, category_id, "Hard Block Product")
             pid = product["id"]
 
-            _emit_product_event(client, pid, seller["user_id"], "CREATED")
+            _emit_product_event(client, pid, seller["user_id"], "PRODUCT_CREATED")
             card = _get_next(client, "mod-1")
             assert card is not None
 
-            reasons = client.get("/api/v1/moderation/product-blocking-reasons", headers=SERVICE_HEADERS).json()
+            reasons = client.get("/api/v1/blocking-reasons", headers=SERVICE_HEADERS).json()
             hard_id = next(r["id"] for r in reasons if r["hard_block"])
 
             resp = client.post(
-                f"/api/v1/moderation/products/{pid}/decline",
-                json={"blocking_reason_id": hard_id},
+                f"/api/v1/tickets/{pid}/block",
+                json={"blocking_reason_ids": [hard_id]},
                 headers={**SERVICE_HEADERS, "X-Moderator-Id": "mod-1"},
             )
             assert resp.status_code == 200
@@ -270,44 +334,40 @@ class TestMod5DeclineHardBlock:
             store = app.state.store
             assert store.moderation_cards[pid]["status"] == "HARD_BLOCKED"
 
-    def test_hard_blocked_rejects_edit(self):
+    def test_hard_blocked_returns_403(self):
         with TestClient(app) as client:
             seller = _create_seller(client, "mod5-edit@example.com", "5555555556")
             seller_h = _seller_headers(seller)
             category_id = _get_category_id(client)
 
-            product = _create_product(client, seller_h, category_id, "HB Edit")
+            product = _create_product(client, seller_h, category_id, "HB 403")
             pid = product["id"]
 
-            _emit_product_event(client, pid, seller["user_id"], "CREATED")
-            card = _get_next(client, "mod-1")
-            assert card is not None
+            _emit_product_event(client, pid, seller["user_id"], "PRODUCT_CREATED")
+            _get_next(client, "mod-1")
 
-            reasons = client.get("/api/v1/moderation/product-blocking-reasons", headers=SERVICE_HEADERS).json()
+            reasons = client.get("/api/v1/blocking-reasons", headers=SERVICE_HEADERS).json()
             hard_id = next(r["id"] for r in reasons if r["hard_block"])
 
             resp = client.post(
-                f"/api/v1/moderation/products/{pid}/decline",
-                json={"blocking_reason_id": hard_id},
+                f"/api/v1/tickets/{pid}/block",
+                json={"blocking_reason_ids": [hard_id]},
                 headers={**SERVICE_HEADERS, "X-Moderator-Id": "mod-1"},
             )
             assert resp.status_code == 200
 
-            resp2 = client.put(
-                f"/api/v1/products/{pid}",
-                headers=seller_h,
-                json={"title": "HB Edit 2", "description": "Updated", "category_id": category_id},
+            resp2 = client.post(
+                f"/api/v1/tickets/{pid}/approve",
+                json={},
+                headers={**SERVICE_HEADERS, "X-Moderator-Id": "mod-1"},
             )
-            assert resp2.status_code == 200
-
-            store = app.state.store
-            assert store.moderation_cards[pid]["status"] == "HARD_BLOCKED"
+            assert resp2.status_code == 403
 
 
 class TestMod6BlockingReasons:
     def test_blocking_reasons(self):
         with TestClient(app) as client:
-            resp = client.get("/api/v1/moderation/product-blocking-reasons", headers=SERVICE_HEADERS)
+            resp = client.get("/api/v1/blocking-reasons", headers=SERVICE_HEADERS)
             assert resp.status_code == 200
             reasons = resp.json()
             assert len(reasons) == 10
@@ -315,3 +375,6 @@ class TestMod6BlockingReasons:
             soft = [r for r in reasons if not r["hard_block"]]
             assert len(hard) == 3
             assert len(soft) == 7
+            for r in reasons:
+                assert "code" in r
+                assert "is_active" in r

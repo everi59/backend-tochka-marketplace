@@ -36,16 +36,20 @@ class EngagementService(BaseService):
 
     def subscribe_product(self, buyer_id: str, product_id: str, events: list[str]) -> None:
         self.store.product_service.require_product(product_id)
+        existing = self.store.subscriptions.get(buyer_id, {}).get(product_id)
+        if existing is not None:
+            raise ServiceError('CONFLICT', 'SUBSCRIPTION_ALREADY_EXISTS', 409)
         self.store.subscriptions.setdefault(buyer_id, {})[product_id] = set(events)
 
     def unsubscribe_product(self, buyer_id: str, product_id: str) -> None:
         self.store.subscriptions.setdefault(buyer_id, {}).pop(product_id, None)
 
     def handle_b2b_event(self, event: dict[str, Any]) -> None:
-        key = event['idempotency_key']
-        if key in self.store.event_idempotency:
-            raise ServiceError('CONFLICT', 'Duplicate event', 409)
-        self.store.event_idempotency[key] = {'accepted_at': iso(utcnow())}
+        key = event.get('idempotency_key')
+        if key is not None:
+            if key in self.store.event_idempotency:
+                raise ServiceError('CONFLICT', 'Duplicate event', 409)
+            self.store.event_idempotency[key] = {'accepted_at': iso(utcnow())}
         event_type = event['event_type']
         payload = event['payload']
         if event_type in {'PRODUCT_BLOCKED', 'PRODUCT_HARD_BLOCKED', 'PRODUCT_DELETED'}:

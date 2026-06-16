@@ -191,7 +191,7 @@ def test_guest_cart_merge_and_b2b_event() -> None:
         assert subscribe.status_code == 204
 
         event_resp = client.post(
-            "/api/v1/b2b/events",
+            "/api/v1/events/b2b",
             headers={"X-Service-Key": "svc"},
             json={
                 "event_type": "PRICE_CHANGED",
@@ -304,7 +304,7 @@ def test_cart_marks_blocked_items_unavailable_and_excludes_from_subtotal() -> No
         sku_id = detail["skus"][0]["id"]
         client.post("/api/v1/cart/items", headers=buyer_headers, json={"sku_id": sku_id, "quantity": 1})
         client.post(
-            "/api/v1/b2b/events",
+            "/api/v1/events/b2b",
             headers={"X-Service-Key": "svc"},
             json={
                 "event_type": "PRODUCT_BLOCKED",
