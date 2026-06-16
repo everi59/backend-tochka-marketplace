@@ -228,7 +228,7 @@ def test_b2b_3_edit_product_and_sku() -> None:
             headers=other_h,
             json={"title": "Hacked"},
         )
-        assert forbidden.status_code == 403
+        assert forbidden.status_code == 404
 
         product2, sku2 = _seed_product_with_sku(client, seller_h, category_id)
         _moderate_product(client, product2["id"])
@@ -281,7 +281,7 @@ def test_b2b_4_delete_product() -> None:
         other = _create_seller(client, "b2b4-other@example.com", "4444444445")
         other_h = _seller_headers(other)
         forbidden = client.delete(f"/api/v1/products/{product2['id']}", headers=other_h)
-        assert forbidden.status_code == 403
+        assert forbidden.status_code == 404
 
         product3 = _create_product(client, seller_h, category_id, "Hard Blocked")
         app.state.store.products[product3["id"]]["status"] = "HARD_BLOCKED"
@@ -327,7 +327,7 @@ def test_b2b_5_view_product_status() -> None:
         other = _create_seller(client, "b2b5-other@example.com", "5555555556")
         other_h = _seller_headers(other)
         not_found = client.get(f"/api/v1/products/{product['id']}", headers=other_h)
-        assert not_found.status_code == 403
+        assert not_found.status_code == 404
 
         svc_resp = client.get(f"/api/v1/products/{product['id']}", headers=SERVICE_HEADERS)
         assert svc_resp.status_code == 200
@@ -364,7 +364,7 @@ def test_b2b_6_invoice_lifecycle() -> None:
             headers=other_h,
             json={"items": [{"sku_id": sku["id"], "quantity": 5}]},
         )
-        assert forbidden.status_code == 403
+        assert forbidden.status_code == 404
 
         accept = client.post(
             f"/api/v1/invoices/{invoice['id']}/accept",
@@ -488,7 +488,7 @@ def test_b2b_9_moderation_events() -> None:
         product, sku = _seed_product_with_sku(client, seller_h, category_id)
 
         resp = client.post(
-            "/api/v1/events/moderation",
+            "/api/v1/moderation/events",
             headers=SERVICE_HEADERS,
             json={
                 "idempotency_key": "mod-ok-1",
@@ -497,11 +497,11 @@ def test_b2b_9_moderation_events() -> None:
                 "occurred_at": "2026-01-01T00:00:00Z",
             },
         )
-        assert resp.status_code == 200
+        assert resp.status_code == 204
         assert app.state.store.products[product["id"]]["status"] == "MODERATED"
 
         resp2 = client.post(
-            "/api/v1/events/moderation",
+            "/api/v1/moderation/events",
             headers=SERVICE_HEADERS,
             json={
                 "idempotency_key": "mod-ok-1",
@@ -510,10 +510,10 @@ def test_b2b_9_moderation_events() -> None:
                 "occurred_at": "2026-01-01T00:00:00Z",
             },
         )
-        assert resp2.status_code == 200
+        assert resp2.status_code == 204
 
         resp3 = client.post(
-            "/api/v1/events/moderation",
+            "/api/v1/moderation/events",
             headers=SERVICE_HEADERS,
             json={
                 "idempotency_key": "mod-block-1",
@@ -525,7 +525,7 @@ def test_b2b_9_moderation_events() -> None:
                 "occurred_at": "2026-01-01T00:00:00Z",
             },
         )
-        assert resp3.status_code == 200
+        assert resp3.status_code == 204
         assert app.state.store.products[product["id"]]["status"] == "BLOCKED"
         assert app.state.store.products[product["id"]]["blocking_reason"]["title"] == "Причина"
 
@@ -653,7 +653,7 @@ def test_b2b_12_delete_sku() -> None:
         other_h = _seller_headers(other)
         product2, sku2 = _seed_product_with_sku(client, seller_h, category_id)
         forbidden = client.delete(f"/api/v1/skus/{sku2['id']}", headers=other_h)
-        assert forbidden.status_code == 403
+        assert forbidden.status_code == 404
 
 
 # ============================================================
@@ -694,7 +694,7 @@ def test_b2b_13_image_upload_and_delete() -> None:
             headers=other_h,
             json={"url": "https://example.com/hack.jpg", "ordering": 0},
         )
-        assert forbidden.status_code == 403
+        assert forbidden.status_code == 404
 
         del_resp = client.delete(
             f"/api/v1/products/images/{img['id']}",

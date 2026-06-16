@@ -432,7 +432,7 @@ def test_invoice_validation_checks_status_owner_and_empty_items() -> None:
         other_tokens = _create_seller(client, "other-invoice@example.com", "1234567894")
         other_headers = {"Authorization": f"Bearer {other_tokens['access_token']}"}
         forbidden = client.post("/api/v1/invoices", headers=other_headers, json={"items": [{"sku_id": sku_id, "quantity": 1}]})
-        assert forbidden.status_code == 403
+        assert forbidden.status_code == 404
 
 
 def test_sku_delete_rules_and_events() -> None:

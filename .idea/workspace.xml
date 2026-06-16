@@ -5,9 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="11e50fec-ed06-4aea-b56a-79f00dd66ac6" name="Changes" comment="Fix after quests 14.06">
-      <change beforePath="$PROJECT_DIR$/app/core/state.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/state.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/store.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/store.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -209,7 +207,23 @@
       <option name="project" value="LOCAL" />
       <updated>1781462656787</updated>
     </task>
-    <option name="localTasksCounter" value="11" />
+    <task id="LOCAL-00011" summary="Fix after quests 14.06">
+      <option name="closed" value="true" />
+      <created>1781465476293</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1781465476293</updated>
+    </task>
+    <task id="LOCAL-00012" summary="Fix after quests 14.06">
+      <option name="closed" value="true" />
+      <created>1781467093419</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1781467093420</updated>
+    </task>
+    <option name="localTasksCounter" value="13" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">

@@ -107,11 +107,7 @@ class ProductService(BaseService):
             raise ServiceError('BAD_REQUEST', 'name is required', 400)
         if int(data.get('price', 0)) <= 0:
             raise ServiceError('BAD_REQUEST', 'price must be a positive integer', 400)
-        if data.get('cost_price') is None or int(data.get('cost_price', 0)) <= 0:
-            raise ServiceError('BAD_REQUEST', 'cost_price must be a positive integer', 400)
         images_data = data.get('images') or ([{'url': data['image'], 'ordering': 0}] if data.get('image') else [])
-        if not images_data:
-            raise ServiceError('BAD_REQUEST', 'image is required', 400)
         now = utcnow()
         sku = {
             'id': self.store.new_id(),
@@ -202,7 +198,7 @@ class ProductService(BaseService):
 
     def ensure_seller_owns_product(self, seller_id: str, product: dict[str, Any]) -> None:
         if product['seller_id'] != seller_id:
-            raise ServiceError('FORBIDDEN', 'Access denied', 403)
+            raise ServiceError('NOT_FOUND', 'Product not found', 404)
 
     def product_response_b2b(self, product_id: str, public: bool = False) -> dict[str, Any]:
         product = self.require_product(product_id)
