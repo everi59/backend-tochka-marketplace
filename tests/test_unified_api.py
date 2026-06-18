@@ -212,6 +212,59 @@ def test_guest_cart_merge_and_b2b_event() -> None:
         assert notifications.json()["total_count"] >= 1
 
 
+def test_subscribe_returns_204_on_success() -> None:
+    with TestClient(app) as client:
+        seller = _create_seller(client, "sub-seller@example.com", "9999999991")
+        seller_h = {"Authorization": f"Bearer {seller['access_token']}"}
+        category_id = client.get("/api/v1/categories").json()[0]["id"]
+        product = client.post("/api/v1/products", headers=seller_h, json={
+            "title": "Sub Product", "description": "Test", "category_id": category_id,
+        }).json()
+        buyer = _create_buyer(client, "sub-buyer@example.com")
+        buyer_h = {"Authorization": f"Bearer {buyer['access_token']}"}
+        resp = client.post(f"/api/v1/favorites/{product['id']}/subscribe", headers=buyer_h, json={"events": ["PRICE_DROP"]})
+        assert resp.status_code == 204
+
+
+def test_duplicate_subscription_returns_409() -> None:
+    with TestClient(app) as client:
+        seller = _create_seller(client, "dup-seller@example.com", "9999999992")
+        seller_h = {"Authorization": f"Bearer {seller['access_token']}"}
+        category_id = client.get("/api/v1/categories").json()[0]["id"]
+        product = client.post("/api/v1/products", headers=seller_h, json={
+            "title": "Dup Sub Product", "description": "Test", "category_id": category_id,
+        }).json()
+        buyer = _create_buyer(client, "dup-sub-buyer@example.com")
+        buyer_h = {"Authorization": f"Bearer {buyer['access_token']}"}
+        client.post(f"/api/v1/favorites/{product['id']}/subscribe", headers=buyer_h, json={"events": ["PRICE_DROP"]})
+        resp = client.post(f"/api/v1/favorites/{product['id']}/subscribe", headers=buyer_h, json={"events": ["PRICE_DROP"]})
+        assert resp.status_code == 409
+        assert resp.json()["message"] == "SUBSCRIPTION_ALREADY_EXISTS"
+
+
+def test_invalid_notify_on_returns_400() -> None:
+    with TestClient(app) as client:
+        seller = _create_seller(client, "inv-seller@example.com", "9999999993")
+        seller_h = {"Authorization": f"Bearer {seller['access_token']}"}
+        category_id = client.get("/api/v1/categories").json()[0]["id"]
+        product = client.post("/api/v1/products", headers=seller_h, json={
+            "title": "Inv Sub Product", "description": "Test", "category_id": category_id,
+        }).json()
+        buyer = _create_buyer(client, "inv-sub-buyer@example.com")
+        buyer_h = {"Authorization": f"Bearer {buyer['access_token']}"}
+        resp = client.post(f"/api/v1/favorites/{product['id']}/subscribe", headers=buyer_h, json={"events": ["INVALID_EVENT"]})
+        assert resp.status_code == 400
+        assert resp.json()["message"] == "INVALID_NOTIFY_ON"
+
+
+def test_subscribe_to_unknown_product_returns_404() -> None:
+    with TestClient(app) as client:
+        buyer = _create_buyer(client, "unk-sub-buyer@example.com")
+        buyer_h = {"Authorization": f"Bearer {buyer['access_token']}"}
+        resp = client.post("/api/v1/favorites/nonexistent-product/subscribe", headers=buyer_h, json={"events": ["PRICE_DROP"]})
+        assert resp.status_code == 404
+
+
 def test_order_cancel_assembling_and_sets_pending_on_http_failure() -> None:
     with TestClient(app) as client:
         seller_tokens = _create_seller(client, "cancel-seller@example.com", "1234567892")

@@ -56,6 +56,10 @@ class EngagementService(BaseService):
         existing = self.store.subscriptions.get(buyer_id, {}).get(product_id)
         if existing is not None:
             raise ServiceError('CONFLICT', 'SUBSCRIPTION_ALREADY_EXISTS', 409)
+        allowed = {'BACK_IN_STOCK', 'PRICE_DROP'}
+        invalid = set(events) - allowed
+        if invalid:
+            raise ServiceError('BAD_REQUEST', 'INVALID_NOTIFY_ON', 400)
         self.store.subscriptions.setdefault(buyer_id, {})[product_id] = set(events)
 
     def unsubscribe_product(self, buyer_id: str, product_id: str) -> None:
