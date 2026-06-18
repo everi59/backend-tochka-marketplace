@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import asyncio
 from typing import Any, Optional
 
 from app.core.base import ServiceError, iso, utcnow
@@ -14,6 +15,22 @@ class EngagementService(BaseService):
 
     def emit_moderation_event(self, event: dict[str, Any]) -> None:
         self.store.moderation_events.append(self.store.clone(event))
+        app = getattr(self.store, 'app', None)
+        if app is not None:
+            asyncio.ensure_future(self._send_to_moderation(app, event))
+
+    async def _send_to_moderation(self, app, event: dict[str, Any]) -> None:
+        import httpx
+        from fastapi.encoders import jsonable_encoder
+        from app.infrastructure.config.config import APP_CONFIG
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url=APP_CONFIG.B2B_BASE_URL, timeout=10.0) as client:
+            resp = await client.post(
+                '/api/v1/b2b/events',
+                json=jsonable_encoder(event),
+                headers={'X-Service-Key': APP_CONFIG.B2B_SERVICE_KEY},
+            )
+            resp.raise_for_status()
 
     def notify(self, buyer_id: str, notification_type: str, title: str, body: str, payload: dict[str, Any]) -> None:
         notification = {

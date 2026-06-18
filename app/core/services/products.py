@@ -14,13 +14,13 @@ class ProductService(BaseService):
         product = self.store.products.get(product_id, {})
         return {
             'idempotency_key': self.store.new_id(),
-            'product_id': product_id,
-            'seller_id': product.get('seller_id'),
             'event_type': event_type,
-            'event': event_type.removeprefix('PRODUCT_'),
             'occurred_at': iso(utcnow()),
-            'date': iso(utcnow()),
-            'payload': {'json_after': self.store.clone(product)},
+            'payload': {
+                'product_id': product_id,
+                'seller_id': product.get('seller_id'),
+                'json_after': self.store.clone(product),
+            },
         }
 
     def _b2c_event(self, event_type: str, payload: dict[str, Any]) -> dict[str, Any]:

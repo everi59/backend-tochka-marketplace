@@ -256,7 +256,6 @@ class TestMod3Approve:
             pid = product["id"]
             _create_sku(client, seller_h, pid)
 
-            _emit_product_event(client, pid, seller["user_id"], "PRODUCT_CREATED")
             card = _get_next(client, "mod-1")
             assert card is not None
 

@@ -24,6 +24,7 @@ class NeoMarketStore:
         self.reset()
 
     def reset(self) -> None:
+        self.app = None
         self.state = NeoMarketState()
         self.auth_service = AuthService(self)
         self.category_service = CategoryService(self)

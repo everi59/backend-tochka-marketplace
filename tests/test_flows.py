@@ -197,7 +197,7 @@ def test_b2b_2_create_sku() -> None:
         assert len(updated["skus"]) == 1
 
         mod_events = client.app.state.store.moderation_events
-        last_mod = [e for e in mod_events if e.get("product_id") == product["id"]]
+        last_mod = [e for e in mod_events if (e.get("payload") or {}).get("product_id") == product["id"]]
         assert any(e["event_type"] == "PRODUCT_CREATED" for e in last_mod)
 
 
@@ -265,7 +265,7 @@ def test_b2b_4_delete_product() -> None:
 
         mod_events = app.state.store.moderation_events
         assert any(
-            e.get("product_id") == product["id"] and e["event_type"] == "PRODUCT_DELETED"
+            (e.get("payload") or {}).get("product_id") == product["id"] and e["event_type"] == "PRODUCT_DELETED"
             for e in mod_events
         )
         b2b_events = app.state.store.b2b_events

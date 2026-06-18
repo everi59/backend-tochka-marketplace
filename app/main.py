@@ -50,6 +50,7 @@ async def lifespan(app: FastAPI):
 
     app.state.db_connection = db_connection
     app.state.store = NeoMarketStore()
+    app.state.store.app = app
 
     # Create directories для статики
     _ensure_directories()
@@ -133,6 +134,7 @@ async def service_error_handler(request: Request, exc: ServiceError) -> JSONResp
 # Provide eager defaults for app state so imports and tests can access them
 # even before the lifespan context is entered.
 app.state.store = NeoMarketStore()
+app.state.store.app = app
 app.state.db_connection = None
 
 # CORS
