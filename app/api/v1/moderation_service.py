@@ -22,6 +22,7 @@ def _ticket_response(card: dict[str, Any]) -> dict[str, Any]:
     kind = 'CREATE' if card.get('json_before') is None else 'EDIT'
     return {
         'id': card['product_id'],
+        'product_id': card['product_id'],
         'seller_id': card['seller_id'],
         'kind': kind,
         'status': card['status'],
