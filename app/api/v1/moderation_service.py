@@ -80,6 +80,24 @@ def _find_card_by_ticket_id(store: NeoMarketStore, ticket_id: str) -> Optional[d
     return None
 
 
+async def _persist_card(request: Request, card_data: dict) -> None:
+    """Persist moderation card to DB when available (best-effort)."""
+    db_connection = getattr(request.app.state, 'db_connection', None)
+    if db_connection is None:
+        return
+    try:
+        from app.core.repositories.moderation_repository import ModerationRepository
+        session = db_connection.get_session()
+        try:
+            repo = ModerationRepository(session)
+            await repo.upsert_ticket(card_data)
+            await session.commit()
+        finally:
+            await session.close()
+    except Exception:
+        pass
+
+
 @b2b_events_router.post("/events")
 async def moderation_receive_event(payload: dict[str, Any], request: Request, x_service_key: Optional[str] = Header(None)):
     store = get_store(request)
@@ -122,6 +140,7 @@ async def moderation_receive_event(payload: dict[str, Any], request: Request, x_
                 'date_updated': now,
                 'date_moderation': None,
             }
+            await _persist_card(request, store.moderation_cards[product_id])
             return Response(status_code=202)
 
         elif event_type == 'PRODUCT_EDITED':
@@ -144,11 +163,25 @@ async def moderation_receive_event(payload: dict[str, Any], request: Request, x_
             card['moderator_id'] = None
             card['field_reports'] = []
             card['date_updated'] = now
+            await _persist_card(request, card)
             return Response(status_code=202)
 
         elif event_type == 'PRODUCT_DELETED':
             if card:
                 del store.moderation_cards[product_id]
+                db_connection = getattr(request.app.state, 'db_connection', None)
+                if db_connection is not None:
+                    try:
+                        from app.core.repositories.moderation_repository import ModerationRepository
+                        session = db_connection.get_session()
+                        try:
+                            repo = ModerationRepository(session)
+                            await repo.delete_ticket(product_id)
+                            await session.commit()
+                        finally:
+                            await session.close()
+                    except Exception:
+                        pass
             return Response(status_code=202)
 
         else:
@@ -168,6 +201,40 @@ async def moderation_get_next(payload: dict[str, Any], request: Request, x_moder
                 raise ServiceError('CONFLICT', 'Moderator already has a ticket in review', 409)
 
         queue_priority = payload.get('queue_priority')
+
+        # Try DB-backed claim with SELECT FOR UPDATE SKIP LOCKED
+        db_connection = getattr(request.app.state, 'db_connection', None)
+        if db_connection is not None:
+            from app.core.repositories.moderation_repository import ModerationRepository
+            session = db_connection.get_session()
+            try:
+                repo = ModerationRepository(session)
+                ticket = await repo.claim_next(moderator_id, queue_priority)
+                if ticket is None:
+                    return Response(status_code=204)
+                # Sync back to in-memory store for consistency
+                card_data = {
+                    'product_id': ticket.product_id,
+                    'seller_id': ticket.seller_id,
+                    'status': ticket.status,
+                    'queue_priority': ticket.queue_priority,
+                    'json_before': ticket.json_before,
+                    'json_after': ticket.json_after,
+                    'blocking_reason_id': ticket.blocking_reason_id,
+                    'moderator_id': ticket.moderator_id,
+                    'moderator_comment': ticket.moderator_comment,
+                    'field_reports': ticket.field_reports or [],
+                    'date_created': ticket.date_created,
+                    'date_updated': ticket.date_updated,
+                    'date_moderation': ticket.date_moderation,
+                    'blocking_history': ticket.blocking_history,
+                }
+                store.moderation_cards[ticket.product_id] = card_data
+                return _ticket_response(card_data)
+            finally:
+                await session.close()
+
+        # Fallback: in-memory claim
         candidates = []
         for pid, card in store.moderation_cards.items():
             if card['status'] != 'PENDING':
@@ -220,6 +287,7 @@ async def moderation_approve(ticket_id: str, payload: Optional[dict[str, Any]], 
         card['blocking_reason_id'] = None
         card['field_reports'] = []
         card['date_updated'] = now
+        await _persist_card(request, card)
 
         try:
             await _send_to_b2b(request, {
@@ -271,6 +339,7 @@ async def moderation_decline(ticket_id: str, payload: dict[str, Any], request: R
             for fr in field_reports
         ]
         card['date_updated'] = now
+        await _persist_card(request, card)
 
         try:
             await _send_to_b2b(request, {
